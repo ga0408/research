@@ -1,0 +1,27 @@
+[submodule "source/git/PageIndex_VectifyAI"]
+	path = source/git/PageIndex_VectifyAI
+	url = https://github.com/VectifyAI/PageIndex.git
+[submodule "source/git/CatchMe_HKUDS"]
+	path = source/git/CatchMe_HKUDS
+	url = https://github.com/HKUDS/CatchMe.git
+[submodule "source/git/Memora_microsoft"]
+	path = source/git/Memora_microsoft
+	url = https://github.com/microsoft/Memora.git
+[submodule "source/git/openclaw_openclaw"]
+	path = source/git/openclaw_openclaw
+	url = https://github.com/openclaw/openclaw.git
+[submodule "source/git/hermes-agent_NousResearch"]
+	path = source/git/hermes-agent_NousResearch
+	url = https://github.com/NousResearch/hermes-agent.git
+[submodule "source/git/Draft-OPD_bingyang-lei"]
+	path = source/git/Draft-OPD_bingyang-lei
+	url = https://github.com/bingyang-lei/Draft-OPD.git
+[submodule "source/git/agent-workflow-memory_zorazrw"]
+	path = source/git/agent-workflow-memory_zorazrw
+	url = https://github.com/zorazrw/agent-workflow-memory.git
+[submodule "source/git/ReflectWorld_addxai"]
+	path = source/git/ReflectWorld_addxai
+	url = https://github.com/addxai/ReflectWorld.git
+[submodule "source/git/InMind_imlrz"]
+	path = source/git/InMind_imlrz
+	url = https://github.com/imlrz/InMind.git
