@@ -16,17 +16,14 @@
 
 ## Problem & Motivation (풀고자 하는 문제)
 
-### 직관적 상황 예시: "게임/로봇 탐색 후 원래 장소로 돌아왔을 때"
+### 시각적 예시 1: "탐색 후 출발 지점으로 복귀할 때의 비주얼 지속성 (Visual Persistence)"
 
-3D 로봇/게임 월드 모델에서 에이전트가 출발지 **Point A (빨간 차고)**에서 출발하여 한참 동안 탐색($B \to C \to D$)한 뒤, 다시 출발지 **Point A**로 돌아왔다고 가정한다.
+![Figure 1: LoopBench Revisit Visual Comparison](../source/paper/figures/fig1_loopbench_revisit_crop.png)
 
-```
- [출발] Point A (빨간 차고) ──> Point B (나무 숲) ──> Point C (다리) ──> Point D (동굴) ──> [복귀] Point A (???)
-```
-
-- **바람직한 결과 (Visual Persistence)**: Point A로 돌아왔을 때, 이전에 본 **'빨간 차고'**의 형태와 색상이 동일하게 생성되어야 함.
-- **기존 방식의 실패 (Sliding Window / Naive Cache)**: 
-  - 과거 Point A의 메모리를 잊어버리거나 읽지 못해, Point A에 도착했을 때 빨간 차고 대신 **'파란 집'**이나 **'전혀 다른 건물'**을 그려냄 (시각적 붕괴).
+> **그림 1 분석 (논문 Figure 1 원본)**: 
+> - **경로**: 출발지 A(초록 숲/도로, $t=0$) ──> B ($t=4$) ──> C ($t=8$) ──> D ($t=12$) ──> 다시 **출발지 A 복귀** ($t=16$).
+> - **Sliding Window (기존)**: 과거 A의 메모리를 잊어버리거나 위치 오프셋 이탈로 인출하지 못해, 출발지로 돌아왔을 때 원래 모습이 아닌 **완전히 무너진 가짜 도로/건물(빨간색 테두리)**을 생성함.
+> - **WorldTrace (Ours)**: 랜드마크 정규 키 메모리를 유지하여, 긴 탐색 복귀 후에도 최초 A 시점의 시각적 모습과 **구조적으로 정확히 일치하는 오리지널 씬(초록색 테두리)**을 복원함.
 
 ---
 
@@ -58,27 +55,12 @@
 
 ## Method (어떻게 해결했는가?)
 
-WorldTrace는 파인튜닝 없이 추론 시점(inference-time)에서 **"메모리를 어디에 둘 것인가(Addressability)"**와 **"무엇을 어떻게 저장할 것인가(Informativeness)"**를 완벽히 해결한다.
+![Figure 2: WorldTrace Memory Architecture Overview](../source/paper/figures/fig2_worldtrace_overview_crop.png)
 
-```
-+--------------------------------------------------------------------------------------------------+
-|                                    WorldTrace Cache Architecture                                 |
-+--------------------------------------------------------------------------------------------------+
-                                     Attention Window L_attn
-                   ┌──────────────────────────────────────────┬────────────────────────┐
-                   │       Summary Cache S (N_s slots)        │ Recent Window R (N_r)  │
-                   │      Fixed Virtual Positions (t^v_s)     │ Verbatim Latent Frames │
-                   └──────────────────────────────────────────┴────────────────────────┘
-                                         ▲                                ▲
-                                         │                                │
-                       [Canonical Key Operator]                  [Verbatim Recent]
-                                         │
-        ┌────────────────────────────────┴────────────────────────────────┐
-        │                                                                 │
-  [WorldTrace-Field]                                             [WorldTrace-Landmark]
-  - 정규 공간(Unrotated)에서 평균 계산                          - 씬 전환 지점(Scene-Entry) 감지
-  - 위상 상쇄 없는 시각적 일관성 유지                             - 랜드마크 프레임 정규 키 고정 저장
-```
+> **그림 2 분석 (논문 Figure 2 원본)**: 
+> - **전체 구조**: 전체 주의집중 윈도우 $L_{\text{attn}}$를 최근 윈도우 $\mathcal{R}$ ($N_r$ 슬롯)과 먼 과거 요약 캐시 $\mathcal{S}$ ($N_s$ 슬롯)로 분할.
+> - **WorldTrace-Field (좌측 하단)**: 과거 프레임들의 RoPE 회전을 역으로 풀어서 정규 공간(Canonical Domain)에서 평균화한 뒤, 각 슬롯의 Virtual Position $t^v_s$로 재회전하여 시각적 일관성 유지.
+> - **WorldTrace-Landmark (우측 하단)**: 씬 전환 시점의 정규 키(Canonical Key)를 Frozen 상태로 보관하고 쿼리 시점에 $t^v_s$로 동적 회전하여 재방문 회상 달성.
 
 ---
 
@@ -92,8 +74,6 @@ WorldTrace는 파인튜닝 없이 추론 시점(inference-time)에서 **"메모�
 
 ### 2. 해결 방식 A: WorldTrace-Field (연속적 시각 일관성)
 
-시간 흐름에 따라 변하는 배경과 움직임을 매끄럽게 보존하기 위한 방식이다.
-
 ```
 [Source Frames Keys] ───► 1) RoPE 회전 제거: R(-θ_m) * K_m ───► Canonical Space (정규 공간)
                                                                        │
@@ -102,78 +82,59 @@ WorldTrace는 파인튜닝 없이 추론 시점(inference-time)에서 **"메모�
 [Compressed Key] ◄─── 3) Target 가상 위치로 재인코딩: R(θ t^v_s) ◄───┘
 ```
 
-1. **Unrotate (정규화)**: 각 프레임 Key에서 기존 RoPE 회전을 제거하여 정규 공간(Canonical Space)으로 되돌린다.
-2. **Canonical Averaging (평균화)**: 정규 공간에서는 모든 Key의 방향이 정렬되어 있으므로, 위상 상쇄 없이 안전하게 평균을 구한다.
-3. **Re-rotate (재인코딩)**: 평균화된 Key를 해당 요약 슬롯의 가상 위치 $t^v_s$ 각도로 새로 인코딩한다.
+- **Canonical Key Averaging (Def. 2)**:
+  $$K^{\text{field}}_f(t^v) = R(\theta_f t^v) \cdot \frac{1}{M} \sum_{m=1}^{M} R(-\theta_f t_m) K^f_{t_m}$$
+- **Mean Attention Preservation (Prop. 2)**: 위상 상쇄 없는 정규 공간 평균화는 소프트맥스 주의집중 이전의 평균 점수(Mean Attention Score)를 이론적으로 완벽히 보존함.
 
 ---
 
 ### 3. 해결 방식 B: WorldTrace-Landmark (재방문 에피소드 회상)
 
-장소 재방문 시 과거의 주요 장소를 선명하게 기억해내는 방식이다.
-
-```
-Incoming Frame ──► [Consecutive Distance Check: cos_dist(K_can(t), K_can(t-1)) > τ]
-                          │
-                          ├──► [YES]: Scene-Entry Event! (새 장소/방문 전환 감지)
-                          │           ==> 정규 키(Canonical Key)를 Frozen 상태로 Landmark Slot에 보관!
-                          │           ==> 쿼리 시점에 Virtual Position t^v_s 로 동적 회전하여 인출!
-                          └──► [NO] : 일반 이동 (유지)
-```
-
-1. **Scene-Entry Detection**: 프레임 간 정규 키 코사인 거리를 측정하여 갑작스러운 배경 변화(장소 전환 등)가 일어난 지점을 **Landmark**로 지정한다.
-2. **Frozen Canonical Key**: 랜드마크 프레임의 정규 키를 고정 보존하다가, 쿼리가 발생할 때 가상 위치 $t^v_s$로 동적 회전하여 완벽한 시각적 모습을 복원한다.
+- **Scene-Entry Detection**: 연속 프레임 간 정규 키 코사인 거리 $\text{dist}(t) = 1 - \cos(K_{\text{can}}(t), K_{\text{can}}(t-1))$가 역치 $\tau$를 넘을 때 해당 프레임을 Landmark로 선정.
+- **Frozen Canonical Key**: 랜드마크 프레임의 정규 키를 고정 보존하다가, 쿼리가 발생할 때 가상 위치 $t^v_s$로 동적 회전하여 완벽한 시각적 모습을 복원함.
 
 상세 발췌 → [excerpt](../source/paper/Addressable_Memory_for_Video_World_Models_2026_NVIDIA.md)
 
 ---
 
-## Experiments & Results (검증 결과)
+## Experiments & Results (검증 결과 및 시각적 비교)
 
-### 1. LoopBench 벤치마크 (장소 재방문 검증)
+### 1. LoopBench 벤치마크 궤적
 
-WorldTrace의 효과를 검증하기 위해, 카메라가 다양한 궤적(ABA, ABCA, ABCDA)으로 탐색한 후 최초 장소 $A$로 돌아오는 **LoopBench** 벤치마크를 구축했다.
+![Figure 3: LoopBench Benchmark Geometries](../source/paper/figures/fig3_loopbench_geometries_crop.png)
 
-```
-  [ABA Geometry]             [ABCA Geometry]            [ABCDA Geometry]
-  A <=========> B            A ─────────► B             A ─────────► B
-  (직진 후 180도 반전)       │            │             │            │
-                             └◄── C ◄─────┘             D ◄───────── C
-```
+> **그림 3 분석 (논문 Figure 3 원본)**: 
+> LoopBench는 복귀 시점의 비주얼 지속성을 평가하기 위해 3가지 기하학적 궤적(**ABA** 180도 반전, **ABCA** 삼각형, **ABCDA** 사각형 궤적)을 제공함.
 
 ---
 
-### 2. 성능 비교 표
+### 2. 장기 롤아웃 시 시각적 프레임 비교 (N=48 AR Chunks)
 
-#### (1) 장기 롤아웃 시 시각 일관성 (MG2-1.3B, $N=48$ Chunks)
+![Figure 4: 48-chunk Long Rollout Frame Comparison](../source/paper/figures/fig4_long_rollout_crop.png)
 
-| 구분 | TempSSIM ($\uparrow$, 일관성) | Local Scene Drift ($\downarrow$, 붕괴율) | 특이사항 |
-| :--- | :---: | :---: | :--- |
-| **Sliding Window (기존)** | 0.472 | 0.0305 | 과거 프레임 망각으로 씬 변경 |
-| **Block-Relative (기존)** | 0.530 | 0.0339 | 모든 메모리가 한 지점으로 붕괴 |
-| **WorldTrace-Field (Ours)** | **0.545** | **0.0295** | **+15.5% 일관성 향상 & 최소 붕괴** |
+> **그림 4 분석 (논문 Figure 4 원본)**: 
+> - 동일한 입력 이미지 및 카메라 궤적으로 $N=48$ 청크(장시간) 생성 시 비교.
+> - **기존 방식들 (Sliding Window, Block-Relative, Centroid)**: 청크 $n=18$ 시점부터 시각적 왜곡 및 드래프트(빨간 테두리)가 심각하게 발생함.
+> - **WorldTrace-Field (Ours)**: 롤아웃 끝($n=48$)까지 도로와 건물의 구조가 일관되게유지됨.
 
-#### (2) 장시간 탐색 후 최초 장소 $A$ 복귀 시 회상 정확도 (LoopBench ABA Revisit)
+---
 
-```
-========================================================================================
-Position-Aligned CLIP (PAC Metric, ↑)
-========================================================================================
-Sliding Window Baseline : [██████████████░░░░░░] 0.638 (원래 장소 복귀 시 씬 무너짐)
-WorldTrace-Landmark     : [████████████████████] 0.833 (+19.5% 향상, 원래 장소 완벽 복원!)
-```
+### 3. 정량적 성과 표
+
+| 구분 | TempSSIM ($\uparrow$, 일관성) | Local Scene Drift ($\downarrow$, 붕괴율) | LoopBench Revisit PAC ($\uparrow$, 회상률) |
+| :--- | :---: | :---: | :---: |
+| **Sliding Window (기존)** | 0.472 | 0.0305 | 0.638 |
+| **Block-Relative (기존)** | 0.530 | 0.0339 | - |
+| **WorldTrace-Field (Ours)** | **0.545** (+15.5%) | **0.0295** | - |
+| **WorldTrace-Landmark (Ours)** | - | - | **0.833** (+19.5%) |
 
 ---
 
 ## Analysis (종합 평가)
 
 ### 장점 & 의의
-1. **파인튜닝 없는 적용 (Zero-Retraining)**: 기존 훈련된 비디오 월드 모델의 가중치를 고정한 채, 추론 시점의 KV 캐시 포지셔닝과 정규화 변환만으로 장기 메모리 구축.
-2. **수학적 보장**: Canonical Space 키 평균화가 소프트맥스 주의집중 이전의 평균 점수(Mean Attention Score)를 보존함을 명확히 증명.
-
-### 한계점 & 확장 방향
-1. **슬롯 용량의 한계**: 요약 슬롯 $N_s$ 개수가 고정되어 있어, 수십 개 이상의 씬을 넘나들 경우 오래된 랜드마크가 밀려날 수 있음.
-2. **향후 과제**: 카메라 3D 포즈 정보(Plücker embedding)와 연동한 공간 정렬 메모리 확장.
+1. **Zero-Retraining (Training-Free)**: 기존 훈련된 비디오 월드 모델의 가중치를 고정한 채, 추론 시점의 KV 캐시 포지셔닝과 정규화 변환만으로 장기 메모리 구축.
+2. **시각 자료 입증**: Figure 1, 4의 결과처럼 롤아웃 장기화 및 씬 재방문 시 프레임 붕괴를 완벽히 차단함.
 
 ---
 
