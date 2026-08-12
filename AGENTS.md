@@ -144,7 +144,7 @@ topics/<주제영문명>.md
 
 ## 6. Git 운영
 
-- 원격: https://github.ecodesamsung.com/jjlee-lee/research.git
+- 원격: https://github.com/ga0408/research.git
 - 기본 브랜치: `main`
 - 커밋 메시지: `분류: 간단설명` 형태.
   - 예: `git: langchain memory 아키텍처 분석 추가`
