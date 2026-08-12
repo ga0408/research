@@ -8,16 +8,49 @@
 
 ### Outline
 - **Problem & Motivation**: 생성 길이가 길어질 때 위치 인코딩(RoPE) 오프셋이 학습 범위를 벗어나 과거 관측을 읽지 못하는 Addressability 병목과, 키 평균화 시 발생하는 RoPE 위상 상쇄(Phase Cancellation)로 인해 시각적 일관성이 무너지는 문제 분석.
+- **Theoretical Context & Paradigm Comparison**: LLM의 컨텍스트 윈도우 한계와의 연관성 및 텍스트 기반 RAG(Retrieval-Augmented Generation) 패러다임과 비디오 라텐트 KV 캐시 직접 조작 방식 간의 아키텍처적 차이 분석.
 - **Contributions**: Slot Rank 기반의 고정 가상 위치 할당 (Def. 1), 정규 공간(canonical space) 내 키 평균화 기반 **WorldTrace-Field** (Def. 2), 랜드마크 기반 고정 키 추적의 **WorldTrace-Landmark**, 닫힌 루프(closed-loop) 재방문 벤치마크 **LoopBench** 제시.
-- **Method**: 메모리를 최근 윈도우($N_r$)와 요약 캐시($N_s$)로 분할하고, 롤아웃 길이에 구속받지 않는 가상 위치 할당과 Canonical Unrotated Keys 매핑 아키텍처.
-- **Experiments & Results**: 일반 일방향 장기 생성 롤아웃 $N=48$ 환경에서 비주얼 일관성(+15.5%) 및 루프 재방문 벤치마크(LoopBench) 시 에피소드 회상(+19.5%) 대폭 향상.
+- **Method & Experiments**: 메모리 가상 위치 할당 및 Canonical Unrotated Keys 매핑 아키텍처를 바탕으로, 일반 일방향 장기 롤아웃($N=48$)에서의 비주얼 일관성(+15.5%) 및 루프 재방문 벤치마크(LoopBench)에서의 에피소드 회상(+19.5%) 대폭 향상 입증.
 
 ---
 
-## Background: RoPE(Rotary Position Embedding)와 범위 초과(OOD)란?
+## Context Window Limitations & Paradigm Comparison
 
-### 1. RoPE (회전 위치 인코딩)의 직관적 개념: "시계 바늘 회전"
-RoPE는 모델이 토큰(프레임)의 위치를 기억하도록 **벡터를 시계 바늘처럼 특정 각도($\theta \times t$)만큼 회전시키는 기술**이다.
+### 1. LLM Context Window 한계와 비디오 월드 모델의 연관성
+LLM에서 입력 텍스트가 훈련 시 지정된 컨텍스트 윈도우(Context Size)를 넘어서면 이전 대화나 정보를 잊어버리는 것과 마찬가지로, 자기회귀(Autoregressive) 비디오 월드 모델 역시 생성 프레임 길이가 훈련 컨텍스트 한계($L_{\text{train}}$)를 넘어서면 과거 시각 관측을 상실하게 된다.
+
+그러나 비디오 월드 모델에서는 단순한 메모리 용량 초과를 넘어 **두 가지 고유한 기술적 병목**이 결합되어 나타난다:
+1. **RoPE 오프셋 이탈에 따른 Addressability 붕괴**: 프레임 생성이 길어질수록 쿼리와 과거 키 간의 상대 위치 거리($\delta = q - t$)가 훈련 범위를 벗어나, 과거 관측이 KV 캐시에 저장되어 있음에도 주의집중(Attention) 점수가 0으로 수렴하여 인출에 실패한다.
+2. **위상 상쇄(Phase Cancellation)로 인한 신호 파괴**: 캐시 용량을 줄이기 위해 프레임 Key 텐서를 단순 평균할 경우, RoPE 회전각 차이로 인해 시각 신호 벡터들이 서로 상쇄된다.
+
+---
+
+### 2. LLM RAG(Retrieval-Augmented Generation)와 WorldTrace의 구조적 비교
+텍스트 LLM 분야에서는 컨텍스트 한계를 극복하기 위해 문서를 청킹하여 외부 Vector DB/FTS에 저장하고 쿼리 시점에 상위 K개 텍스트 조각을 검색해 프롬프트에 재주입하는 RAG 패러다임을 주로 사용한다. 반면 실시간 비디오 월드 모델 생성에서는 다음과 같은 이유로 RAG 방식 대신 **WorldTrace의 추론-내부 KV 캐시 텐서 조작 방식**이 필수적이다.
+
+```
++--------------------------------------------------------------------------------------------------+
+|                            LLM RAG vs Video WorldTrace Comparison                                |
++--------------------------------------------------------------------------------------------------+
+  [1. LLM RAG (Text / Discrete Memory)]
+  Text / Context ──► [Chunking & Vector DB/FTS Search] ──► Top-K Text Snippets ──► Prompt Injection
+  - 불연속 텍스트 조각 검색 및 텍스트 프롬프트 새로 인코딩 (실시간 비디오 생성엔 오버헤드 큼)
+
+  [2. Video WorldTrace (Continuous Latent / KV Cache Direct Manipulation)]
+  KV Cache (Tensor) ──► [Unrotate Canonical Space] ──► [Virtual Position Slot Mapping] ──► Direct Attention
+  - Vector DB 없이 추론 연산 내부에서 텐서(Key-Value) 레벨 직접 제어 & 지연 시간 Zero (Training-Free)
+```
+
+- **연속적 라텐트 텐서 조작**: RAG가 불연속적인 텍스트 조각(Discrete Text)을 다루는 반면, WorldTrace는 비디오 모델 내부의 고차원 연속 라텐트 텐서(Continuous Latent KV Tensors)를 직접 다룬다.
+- **Zero-Latency 인프라**: 외부 DB 검색 및 텍스트 재인코딩 오버헤드가 발생하는 RAG와 달리, WorldTrace는 모델 추론 연산 내부에서 텐서 회전을 풀고 가상 위치에 매핑하므로 실시간 프레임 생성 속도에 지장을 주지 않는다 (추론 오버헤드 6% 미만).
+- **RoPE 위상 정렬 (Phase Alignment)**: RAG에서는 검색된 텍스트에 새 위치 인코딩이 부여되지만, 비디오 KV 캐시 텐서 조작에서는 RoPE 회전을 역으로 제거한 정규 공간(Canonical Space)에서 평균을 계산하여 위상 상쇄 없이 주의집중 점수를 보존한다.
+
+---
+
+## Background: RoPE(Rotary Position Embedding)와 범위 초과(OOD)
+
+### 1. RoPE (회전 위치 인코딩)의 직관적 개념
+RoPE는 모델이 토큰(프레임)의 위치를 기억하도록 **벡터를 2차원 평면상에서 특정 각도($\theta \times t$)만큼 시계 바늘처럼 회전시키는 기술**이다.
 
 ```
  [t = 0 시점 (12시)]     [t = 1 시점 (1시)]     [t = 2 시점 (2시)]     [t = 6 시점 (6시)]
@@ -31,7 +64,7 @@ RoPE는 모델이 토큰(프레임)의 위치를 기억하도록 **벡터를 시
 
 ---
 
-### 2. "RoPE 범위를 초과했다 (Out-of-Distribution, OOD)"는 무슨 의미인가?
+### 2. RoPE 오프셋 범위 초과(Out-of-Distribution, OOD) 현상
 
 ```
 ==================================================================================================
@@ -48,40 +81,10 @@ RoPE는 모델이 토큰(프레임)의 위치를 기억하도록 **벡터를 시
 ```
 
 - **문제 발생 원인**:
-  - 모델을 훈련시킬 때 비디오 길이는 최대 6개 청크(약 18 프레임) 수준이었으므로, 모델은 상대 오프셋 $\delta \le 18$ 범위 내의 각도 차이만 보고 과거를 읽도록 학습됨.
-  - 하지만 실시간 생성 길이가 길어져 $q = 100$ 시점에 도달하면, $t=0$ 시점의 과거 메모리를 읽으려 할 때 오프셋이 $\delta = 100$으로 커짐.
-  - **시계 바늘이 뱅글뱅글 수없이 돌아 훈련할 때 단 한 번도 본 적 없는 낯선 각도 오프셋(OOD)**이 발생함.
-  - 결과적으로 과거 메모리가 KV 캐시에 물리적으로 저장되어 있더라도, Attention 메커니즘이 이 메모리를 찾지 못해 **'메모리가 없는 것처럼 무시'**하게 됨 (Addressability Failure).
-
----
-
-## Comparison: LLM RAG 메모리 검색 vs WorldTrace 차이점
-
-### Q1. 영상이 길어질 때 항상 생기는 Context Size 문제인가요?
-**네, 맞습니다.** 비디오 생성이 훈련 시 지정된 Context Size($L_{\text{train}}$)를 넘어서면 무조건 발생합니다. 단, 비디오 모델에서는 단순 용량 부족을 넘어 **(1) RoPE 위치 인코딩이 훈련 범위를 벗어나 과거를 읽지 못하는 문제(Addressability)**와 **(2) 텐서 압축 시 위상 상쇄(Phase Cancellation)**가 결합되어 발생합니다.
-
-### Q2. 텍스트 LLM의 RAG(Retrieval-Augmented Generation) 검색과 어떻게 다른가요?
-
-```
-+--------------------------------------------------------------------------------------------------+
-|                            LLM RAG vs Video WorldTrace Comparison                                |
-+--------------------------------------------------------------------------------------------------+
-  [1. LLM RAG (Text / Discrete Memory)]
-  Text / Context ──► [Chunking & Vector DB/FTS Search] ──► Top-K Text Snippets ──► Prompt Injection
-  - 불연속 텍스트 조각 검색 및 프레임워크 텍스트 주입 (실시간 비디오 생성엔 오버헤드 큼)
-
-  [2. Video WorldTrace (Continuous Latent / KV Cache Direct Manipulation)]
-  KV Cache (Tensor) ──► [Unrotate Canonical Space] ──► [Virtual Position Slot Mapping] ──► Direct Attention
-  - Vector DB 없이 추론 연산 내부에서 텐서(Key-Value) 레벨 직접 제어 & 지연 시간 Zero (Training-Free)
-```
-
-| 비교 항목 | LLM RAG (Text Memory) | Video WorldTrace (KV Cache Memory) |
-| :--- | :--- | :--- |
-| **처리 대상** | 불연속적 텍스트/문서 (Discrete Text) | 연속적 텐서 관측 (Continuous Latent KV Tensors) |
-| **작동 방식** | Vector DB / FTS 검색 후 프롬프트에 텍스트 주입 | KV 캐시의 Key 텐서를 정규 공간에서 직접 조작/할당 |
-| **위치 인코딩** | 텍스트 재입력 시 새로운 위치 인코딩 부여 | **RoPE 회전을 역으로 풀고(Unrotate) 가상 위치에 직접 매핑** |
-| **실행 지연** | 외부 검색 DB 호출 오버헤드 발생 | **Zero-Latency (추론 속도 영향 6% 미만)** |
-| **위상 상쇄 문제** | 발생하지 않음 (텍스트 조각 단위) | **발생함 (RoPE 텐서 단순 평균 시 신호 파괴되므로 정규화 필수)** |
+  - 모델을 훈련시킬 때 비디오 길이는 최대 6개 청크(약 18 프레임) 수준이었으므로, 모델은 상대 오프셋 $\delta \le 18$ 범위 내의 각도 차이만 보고 과거를 읽도록 학습되었다.
+  - 하지만 실시간 생성 길이가 길어져 $q = 100$ 시점에 도달하면, $t=0$ 시점의 과거 메모리를 읽으려 할 때 오프셋이 $\delta = 100$으로 커진다.
+  - **시계 바늘이 뱅글뱅글 수없이 돌아 훈련할 때 단 한 번도 본 적 없는 낯선 각도 오프셋(OOD)**이 발생한다.
+  - 결과적으로 과거 메모리가 KV 캐시에 물리적으로 저장되어 있더라도, Attention 메커니즘이 이 메모리를 찾지 못해 **'메모리가 없는 것처럼 무시'**하게 된다 (Addressability Failure).
 
 ---
 
@@ -113,30 +116,48 @@ RoPE는 모델이 토큰(프레임)의 위치를 기억하도록 **벡터를 시
 
 - **아이디어**: 과거 메모리 슬롯을 절대 시간 $t$ 대신, 항상 모델이 학습했던 안전한 상대 거리 범위 내의 **슬롯 순위(Slot Rank)** 위치 $t^v_s$에 배치한다.
 - **수식**: $t^v_s = q - (L_{\text{attn}} - 1 - s)$
-- **효과**: 롤아웃이 1000 프레임 이상으로 길어져도, 모델은 항상 훈련 받은 인-디스트리뷰션(In-Distribution) 오프셋 범위 내에서 과거 요약 슬롯을 안전하게 주소 지정(Address)할 수 있음.
+- **효과**: 롤아웃이 1000 프레임 이상으로 길어져도, 모델은 항상 훈련 받은 인-디스트리뷰션(In-Distribution) 오프셋 범위 내에서 과거 요약 슬롯을 안전하게 주소 지정(Address)할 수 있다.
 
 ---
 
 ### 2. 해결 방식 A: WorldTrace-Field (일반 일방향 장기 비디오 생성용)
 
 - **적용 대상**: 루프나 시점 anchor 재방문이 없는 **모든 일반적인 일방향 장시간 비디오 생성**.
-- **원리**: 롤아웃 시간이 길어짐에 따라 과거 프레임들을 정규 공간(Canonical Space)에서 슬롯별로 이동 평균(Moving Average)하여 보존.
-- **결과**: 재방문이 없더라도 프레임 붕괴(drift)를 방지하고 시각 일관성(TempSSIM)을 지속 유지함.
+- **원리**: 롤아웃 시간이 길어짐에 따라 과거 프레임들을 정규 공간(Canonical Space)에서 슬롯별로 이동 평균(Moving Average)하여 보존한다.
+- **결과**: 재방문이 없더라도 프레임 붕괴(drift)를 방지하고 시각 일관성(TempSSIM)을 지속 유지한다.
 
 ---
 
 ### 3. 해결 방식 B: WorldTrace-Landmark (장소 재방문 / 씬 전환용)
 
 - **적용 대상**: 에이전트가 탐색 중 과거 방문 장소로 돌아오는 **재방문(Scene Revisit) 상황**.
-- **원리**: 씬 전환 시점의 정규 키를 Frozen 상태로 보관하다가, 쿼리 시점에 가상 위치 $t^v_s$로 동적 회전하여 완벽한 시각적 모습을 복원함.
+- **원리**: 씬 전환 시점의 정규 키를 Frozen 상태로 보관하다가, 쿼리 시점에 가상 위치 $t^v_s$로 동적 회전하여 완벽한 시각적 모습을 복원한다.
 
 상세 발췌 → [excerpt](../source/paper/Addressable_Memory_for_Video_World_Models_2026_NVIDIA.md)
 
 ---
 
-## Experiments & Results (실험 구조 검증: 일반 생성 vs 루프 재방문)
+## Experiments & Results (실험 구조 검증)
 
-### 1. LoopBench 벤치마크 궤적 (Sec 4.3 재방문 평가)
+### 1. 일반 일방향 장기 생성과 장소 재방문 검증 구조
+본 논문은 기술의 범용성을 입증하기 위해 (1) 시점 anchor 재방문이 없는 일반 일방향 장기 비디오 생성과 (2) 장소 재방문(LoopBench) 두 가지 영역으로 나누어 검증을 진행했다.
+
+```
++--------------------------------------------------------------------------------------------------+
+|                                    WorldTrace Experiment Scope                                   |
++--------------------------------------------------------------------------------------------------+
+                                                 │
+        ┌────────────────────────────────────────┴────────────────────────────────────────┐
+        │                                                                                 │
+  [1. 일반 일방향 장기 롤아웃 실험 (Sec 4.2)]                      [2. 닫힌 루프 재방문 평가 (Sec 4.3)]
+  - 조건: 재방문/시점 anchor 없는 일방향 생성 ($N=48$ Chunks)       - 조건: $A \to B \to A$, $A \to B \to C \to A$ 등
+  - 적용: WorldTrace-Field                                         - 적용: WorldTrace-Landmark & LoopBench
+  - 성과: TempSSIM +15.5% 향상 & 시각적 붕괴 방지                 - 성과: PAC +19.5% 에피소드 회상 향상
+```
+
+---
+
+### 2. LoopBench 벤치마크 궤적 (Sec 4.3 재방문 평가)
 
 ![Figure 3: LoopBench Benchmark Geometries](../source/paper/figures/fig3_loopbench_geometries_crop.png)
 
@@ -145,7 +166,7 @@ RoPE는 모델이 토큰(프레임)의 위치를 기억하도록 **벡터를 시
 
 ---
 
-### 2. 일반 일방향 장기 롤아웃 프레임 비교 (Sec 4.2 - N=48 AR Chunks)
+### 3. 일반 일방향 장기 롤아웃 프레임 비교 (Sec 4.2 - N=48 AR Chunks)
 
 ![Figure 4: 48-chunk Long Rollout Frame Comparison](../source/paper/figures/fig4_long_rollout_crop.png)
 
@@ -156,7 +177,7 @@ RoPE는 모델이 토큰(프레임)의 위치를 기억하도록 **벡터를 시
 
 ---
 
-### 3. 정량적 성과 표
+### 4. 정량적 성과 표
 
 | 구분 | 적용 조건 | TempSSIM ($\uparrow$, 일관성) | Local Scene Drift ($\downarrow$, 붕괴율) | LoopBench Revisit PAC ($\uparrow$, 회상률) |
 | :--- | :--- | :---: | :---: | :---: |
