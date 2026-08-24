@@ -22,29 +22,65 @@
 ### 2.1 순차적 의사결정 프로세스 수식화 (Sequential Formulation)
 
 - **기존 질의응답 (Zero-shot QA)**:
-  $$a \sim P(A \mid Q)$$
+
+$$
+a \sim P(A \mid Q)
+$$
 
 - **환경 피드백 변수 $F$ 도입**:
-  $$f \sim P'(F \mid Q, a)$$
-  여기서 $P'$는 코드 실행 인터프리터, 에이전트의 내부 월드 모델, 외부 환경 또는 보조 언어 모델에 의해 모델링된다.
+
+$$
+f \sim P'(F \mid Q, a)
+$$
+
+  (여기서 $P'$는 코드 실행 인터프리터, 에이전트의 내부 월드 모델, 외부 환경 또는 보조 언어 모델에 의해 모델링됨)
 
 - **Chain-of-Experience (CoE) 순차 생성 과정**:
-  $$a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1})$$
-  여기서 $e_i = (a_i, f_i)$는 $i$번째 반복(iteration)에서의 시도($a_i$)와 피드백($f_i$) 쌍으로 구성된 경험(experience) 튜플이다.
+
+$$
+a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1})
+$$
+
+  (여기서 $e_i = (a_i, f_i)$는 $i$번째 반복(iteration)에서의 시도 $a_i$와 피드백 $f_i$ 쌍으로 구성된 경험(experience) 튜플)
 
 - **전체 피드백 이력 조건부 생성**:
-  $$a_t \sim P(a_t \mid Q, (a_0, f_0), (a_1, f_1), \dots, (a_{t-1}, f_{t-1}))$$
+
+$$
+a_t \sim P(a_t \mid Q, (a_0, f_0), (a_1, f_1), \dots, (a_{t-1}, f_{t-1}))
+$$
 
 ### 2.2 4단계 피드백 스펙트럼 정의 (Feedback Spectrum)
 
-1. **No Feedback ($f_i = \emptyset$)**:
-   $$a_t \sim P(a_t \mid Q, a_0, a_1, \dots, a_{t-1})$$
+1. **무피드백 (No Feedback)**:
+
+$$
+f_i = \emptyset \implies a_t \sim P(a_t \mid Q, a_0, a_1, \dots, a_{t-1})
+$$
+
    외부 신호 없이 모델 자체의 과거 시도 궤적에 대한 내적 반성(self-reflection)에만 의존.
-2. **Execution Feedback ($f_i = \mathcal{E}(Q, a_i)$)**:
+
+2. **실행기 피드백 (Execution Feedback)**:
+
+$$
+f_i = \mathcal{E}(Q, a_i)
+$$
+
    인터프리터나 단위 테스트 환경에서 코드를 실행하여 얻는 런타임 오류 로그, 실행 트레이스, 공개 단위 테스트 통과율.
-3. **Model Feedback ($f_i = \mathcal{M}_{fb}(Q, a_i)$)**:
+
+3. **모델 비평 피드백 (Model Feedback)**:
+
+$$
+f_i = \mathcal{M}_{fb}(Q, a_i)
+$$
+
    보조 LLM 또는 자기 자신($\mathcal{M}_{fb}$)이 생성하는 자연어 비평(critique), 점수, 또는 구조화된 평가.
-4. **Correctness Feedback ($f_i = \mathbf{1}\{a_i \text{ is correct}\} \in \{0, 1\}$)**:
+
+4. **정답 오라클 피드백 (Correctness Feedback)**:
+
+$$
+f_i = \mathbf{1}\{a_i \text{ is correct}\} \in \{0, 1\}
+$$
+
    도메인 검증기(verifier) 또는 오라클이 제공하는 이진 정답 여부 신호 (이론적 상한선 reference 역할).
 
 ---
@@ -56,7 +92,7 @@
 
 | 방법론 (Method) | AIME 2025 | LiveCodeBench (V6) | LiveBench (Code) | OmniMath | GPQA Diamond | EvaLearn | 전체 평균 |
 |---|---|---|---|---|---|---|---|
-| **ICL ($k \le 20$)** | 71.83% | 62.50% | 65.46% | 53.12% | 78.45% | 40.99% | 62.06% |
+| **ICL (k ≤ 20)** | 71.83% | 62.50% | 65.46% | 53.12% | 78.45% | 40.99% | 62.06% |
 | **ACE (Playbook)** | 71.98% | 66.94% | 69.38% | 50.33% | 76.58% | 42.54% | 62.96% |
 | **Dynamic CheatSheet (DC)** | 73.33% | 63.59% | 68.58% | 48.64% | 79.56% | 42.68% | 62.73% |
 | **No Feedback (NF CoE)** | 77.78% | 72.57% | 60.16% | 65.17% | 80.02% | 44.91% | 66.77% |
@@ -127,7 +163,7 @@
 - **Random / Stochastic**: 명확한 인과관계 없이 표면적 어휘 변경이나 스타일 재배치를 거치며 정답이 된 경우.
 
 ### 6.2 인간-GPT 판정 일치도 (Table 4)
-| 카테고리 (Category) | 일치율 (Agreement, %) | Cohen’s $\kappa$ |
+| 카테고리 (Category) | 일치율 (Agreement, %) | Cohen’s κ |
 |---|---|---|
 | **Feedback Fidelity** | 84.0% | 0.81 |
 | **Self Reflection** | 72.0% | 0.71 |
@@ -136,9 +172,14 @@
 | **전체 (Overall)** | **76.0%** | **0.768** |
 
 ### 6.3 기본 역량 대비 개선 잠재력 상관계수
+
 - **개선 능력 정의식**:
-  $$\Delta_M = \frac{S_{\max} - S_{\text{base}}}{1 - S_{\text{base}}}$$
-- **Pearson 상관계수 ($r$)**:
+
+$$
+\Delta_M = \frac{S_{\max} - S_{\text{base}}}{1 - S_{\text{base}}}
+$$
+
+- **Pearson 상관계수 (r)**:
   - LiveBench (Code): $r = 0.97$
   - LiveCodeBench (V6): $r = 0.83$
   - EvaLearn: $r = 0.37$

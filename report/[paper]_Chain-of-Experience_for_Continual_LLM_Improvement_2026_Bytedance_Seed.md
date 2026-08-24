@@ -12,7 +12,7 @@
 주요 연구 결과는 다음과 같다:
 1. **성능 및 비용 효율성**: Self-Feedback 기반 CoE만으로도 기존 테스트 시점 확장 기법(Dynamic CheatSheet, ACE, ICL) 대비 평균 **7~9%p**, 기본 추론 대비 **5.6%** 성능 향상을 거두며, 불필요한 장문 생성을 억제하여 **19%의 API 호출 비용 절감**을 동시에 달성하였다.
 2. **피드백 결합 시너지**: 모델 비평(Model Feedback)과 정답/실행 신호(Execution/Correctness)를 결합한 이중 피드백(Dual Feedback)이 단일 피드백 대비 추가적인 성능 향상을 견인하였다.
-3. **개선 역량과 기본 능력의 상관관계**: Base 모델의 추론 능력이 뛰어날수록 경험을 소화해 성능을 반등시키는 능력($\Delta_M$)이 유의미하게 증가하였다(전체 평균 Pearson $r=+0.50$, 코딩 태스크 $r=0.97$).
+3. **개선 역량과 기본 능력의 상관관계**: Base 모델의 추론 능력이 뛰어날수록 경험을 소화해 성능을 반등시키는 능력($\Delta_M$)이 유의미하게 증가하였다(전체 평균 Pearson $r = +0.50$, 코딩 태스크 $r = 0.97$).
 4. **위조 피드백 강건성 및 빠른 수렴**: 100% 위조된 부정 피드백 환경에서도 선택적 다수결(SelMV)을 통해 비판적 재검토를 유도하며 높은 정확도를 유지하였고, 대부분의 성능 향상이 초기 20 라운드 이내에 빠르게 수렴함을 확인하였다.
 
 ![Figure 1: CoE 종합 결과 요약 (성능, 효율성, 개선 잠재력)](../source/paper/figures/CoE_2026_Bytedance_Seed_fig1_summary.png)
@@ -29,11 +29,11 @@
 ## Problem & Motivation
 
 - **연구 배경**: 인간의 문제 해결은 시행착오와 피드백을 통해 이해도를 점진적으로 갱신하는 연속적 학습 과정이다. 반면 현대 LLM은 배포 후 고정된 상태($P(A \mid Q)$)로 동작하며, 문제 해결 도중 발생하는 풍부한 환경 상호작용 피드백을 단발성으로 소비한 뒤 폐기하는 구조적 한계를 지닌다.
-- **풀고자 하는 문제 (Task)**: **Test-Time Continual LLM Improvement via Iterative Experience Accumulation** — 모델 파라미터를 역전파로 수정하지 않고, 인퍼런스 컨텍스트 내에서 이전 시도($a_i$)와 피드백($f_i$)의 상호작용 궤적을 순차적으로 축적하여 최적 해법으로 수렴시키는 메커니즘을 정립하고 평가하는 문제.
+- **풀고자 하는 문제 (Task)**: **Test-Time Continual LLM Improvement via Iterative Experience Accumulation** — 모델 파라미터를 역전파로 수정하지 않고, 인퍼런스 컨텍스트 내에서 이전 시도 $a_i$와 피드백 $f_i$의 상호작용 궤적을 순차적으로 축적하여 최적 해법으로 수렴시키는 메커니즘을 정립하고 평가하는 문제.
 - **기존 접근의 한계**:
-  1. **Parallel Sampling & Verifier (Best-of-N, Majority Voting)**: 독립적으로 생성된 후보군 중 최적 답안을 사후 선별하지만, 생성 과정에서 얻은 오류 신호가 다음 생성으로 전파되지 않고 버려진다.
-  2. **Cross-Task Memory Baselines (Dynamic CheatSheet, ACE)**: 이전 문제들로부터 요약된 휴리스틱/플레이북을 검색하여 컨텍스트에 주입하지만, 현재 당면한 복합 문제에 대한 미세한 단위 테스트 실패나 실행 흔적 같은 즉각적 피드백을 흡수하지 못해 최신 추론 모델 환경에서 성능 저하를 초래한다.
-  3. **Aggressive Context Compression**: 중간 추론 단계를 과도하게 요약·압축할 경우, 오류 수정에 결정적인 중간 불변식(invariant)이나 문맥적 제약 조건이 유실된다.
+  1. **병렬 샘플링 및 사후 검증기 (Best-of-N, Majority Voting)**: 독립적으로 생성된 후보군 중 최적 답안을 사후 선별하지만, 생성 과정에서 얻은 오류 신호가 다음 생성으로 전파되지 않고 버려진다.
+  2. **교차 태스크 메모리 기준선 (Dynamic CheatSheet, ACE)**: 이전 문제들로부터 요약된 휴리스틱/플레이북을 검색하여 컨텍스트에 주입하지만, 현재 당면한 복합 문제에 대한 미세한 단위 테스트 실패나 실행 흔적 같은 즉각적 피드백을 흡수하지 못해 최신 추론 모델 환경에서 성능 저하를 초래한다.
+  3. **과도한 컨텍스트 압축 (Aggressive Context Compression)**: 중간 추론 단계를 과도하게 요약·압축할 경우, 오류 수정에 결정적인 중간 불변식(invariant)이나 문맥적 제약 조건이 유실된다.
 
 ---
 
@@ -42,9 +42,9 @@
 - **Chain-of-Experience (CoE) 정식화**: 단일 턴 QA를 순차적 의사결정 프로세스로 확장하고, 피드백의 질과 유무에 따른 4단계 스펙트럼(No Feedback, Execution, Model Critique, Correctness Oracle)을 엄밀하게 정의.
 - **광범위하고 체계적인 다중 도메인 벤치마킹**: 수학(AIME 2025, OmniMath), 코딩(LiveCodeBench V6, LiveBench Code), 지식 추론(EvaLearn, GPQA Diamond)에 걸쳐 8개 최신 LLM(GPT-5, o3, Gemini-2.5 Pro, Claude-4.5 Sonnet 등)을 3회 반복 검증하여 신뢰성 있는 통계 확립.
 - **성능-비용 파레토 최적성 입증**: CoE with Self-Feedback이 단순 재시도(No Feedback) 대비 정확도를 5.6% 높이는 동시에, 불필요한 장문 생성을 억제하여 API 토큰 비용을 19% 절감함을 규명.
-- **개선 잠재력과 Base 역량의 양의 상관관계 발견**: 기본 모델의 추론 능력이 뛰어날수록 피드백을 소화하여 성능을 반등시키는 능력($\Delta_M$)이 유의미하게 증가함을 정량화(평균 $r=+0.50$, 코딩 $r=0.97$).
+- **개선 잠재력과 Base 역량의 양의 상관관계 발견**: 기본 모델의 추론 능력이 뛰어날수록 피드백을 소화하여 성능을 반등시키는 능력($\Delta_M$)이 유의미하게 증가함을 정량화(평균 $r = +0.50$, 코딩 $r = 0.97$).
 - **개선 동역학의 다각도 심층 분석**:
-  - GPT-5 판정기($\kappa=0.768$)를 통해 6,630개 정답 전환 케이스의 원인(피드백 충실도 47.7%, 명세 재인식 30.0% 등)을 규명.
+  - GPT-5 판정기($\kappa = 0.768$)를 통해 6,630개 정답 전환 케이스의 원인(피드백 충실도 47.7%, 명세 재인식 30.0% 등)을 규명.
   - 100% 오답 피드백 환경에서도 선택적 다수결(SelMV)을 통해 오히려 비판적 재검토를 유도하여 성능을 방어하는 강건성 확인.
   - 단일 태스크 내 메모리 압축(DC, SimpleMem)보다 전체 궤적 보존이 우수함을 입증.
 
@@ -56,10 +56,12 @@
 
 ![Figure 2: Chain-of-Experience 반복 개선 루프](../source/paper/figures/CoE_2026_Bytedance_Seed_fig2_architecture.png)
 
-### 1. CoE Sequential Decision Process Formulation
+### 1. CoE 순차적 의사결정 프로세스 수식화 (Sequential Decision Process)
 기존 QA 시스템이 $a \sim P(A \mid Q)$의 조건부 확률 분포에서 단일 샘플링을 수행하는 것과 달리, CoE는 환경 피드백 변수 $F$를 도입한다. 환경 $\mathcal{E}$로부터 샘플링된 피드백 $f \sim P'(F \mid Q, a)$를 바탕으로 $t$번째 시점의 응답 $a_t$는 이전의 모든 시도 및 피드백 튜플 $e_i = (a_i, f_i)$의 이력을 조건부로 하여 생성된다:
 
-$$a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1}) = P(a_t \mid Q, (a_0, f_0), (a_1, f_1), \dots, (a_{t-1}, f_{t-1}))$$
+$$
+a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1}) = P(a_t \mid Q, (a_0, f_0), (a_1, f_1), \dots, (a_{t-1}, f_{t-1}))
+$$
 
 ```
 +-------------------------------------------------------------------------+
@@ -80,20 +82,61 @@ $$a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1}) = P(a_t \mid Q, (a_0, f_0), (
 +-------------------------------------------------------------------------+
 ```
 
-### 2. Feedback Spectrum (4단계 분류)
+### 2. 피드백 스펙트럼 (Feedback Spectrum)
 
-| 피드백 유형 | 수식 정의 | 신호의 특성 및 동작 방식 | 적용 도메인 |
+깃허브 마크다운 뷰어와의 호환성을 위해 핵심 피드백 유형의 정의 및 수식을 아래와 같이 명확히 정리한다:
+
+1. **무피드백 (No Feedback)**:
+   
+$$
+f_i = \emptyset \implies a_t \sim P(a_t \mid Q, a_0, a_1, \dots, a_{t-1})
+$$
+
+   외부 신호 없이 모델 자체의 과거 시도 궤적에 대한 내적 반성에만 의존 (Baseline).
+
+2. **실행기 피드백 (Execution Feedback)**:
+   
+$$
+f_i = \mathcal{E}(Q, a_i)
+$$
+
+   코드 실행 인터프리터 $\mathcal{E}$에서 반환되는 표준 출력(stdout), 표준 에러(stderr), 예외 스택 트레이스, 공개 단위 테스트 통과 결과 (LiveCodeBench, LiveBench 적용).
+
+3. **모델 비평 피드백 (Model Feedback)**:
+   
+$$
+f_i = \mathcal{M}_{fb}(Q, a_i)
+$$
+
+   보조 LLM 또는 Self-Critic 모델 $\mathcal{M}_{fb}$가 생성하는 자연어 비평, 논리적 모순 지적, 평가 점수 (전 도메인 적용).
+
+4. **정답 오라클 피드백 (Correctness Feedback)**:
+   
+$$
+f_i = \mathbf{1}\{a_i \text{ is correct}\} \in \{0, 1\}
+$$
+
+   오라클 정답 비교기를 통한 이진 판정 ($0$ 또는 $1$). 이론적 상한선(Upper-bound) 제공 (AIME, GPQA, OmniMath 적용).
+
+| 피드백 유형 (Type) | 피드백 표현식 | 신호의 특성 및 동작 방식 | 주요 적용 도메인 |
 |---|---|---|---|
-| **No Feedback** | $f_i = \emptyset$ | 외부 평가 없이 이전 시도 목록($a_0, \dots, a_{t-1}$)만을 컨텍스트에 축적. 모델 내적 반성에만 의존 | 전 도메인 Baseline |
-| **Execution Feedback** | $f_i = \mathcal{E}(Q, a_i)$ | 코드 실행기에서 반환되는 stdout, stderr, 런타임 예외 트레이스, 공개 단위 테스트 통과율 | LiveCodeBench, LiveBench |
-| **Model Feedback** | $f_i = \mathcal{M}_{fb}(Q, a_i)$ | 보조 LLM 또는 Self-Critic이 생성하는 자연어 비평, 논리적 모순 지적, 점수화 | 전 도메인 (자연어 피드백) |
-| **Correctness Feedback** | $f_i = \mathbf{1}\{a_i \text{ is correct}\}$ | 오라클 정답 비교기를 통한 이진 판정($\{0, 1\}$). 이론적 상한선(Upper-bound) 제공 | AIME, GPQA, OmniMath |
+| **No Feedback** | `f_i = ∅` | 외부 평가 없이 이전 시도 목록만 컨텍스트에 축적 | 전 도메인 Baseline |
+| **Execution Feedback** | `f_i = E(Q, a_i)` | 코드 실행기에서 반환되는 stdout, stderr, 런타임 예외 트레이스, 단위 테스트 통과율 | LiveCodeBench, LiveBench |
+| **Model Feedback** | `f_i = M_fb(Q, a_i)` | 보조 LLM 또는 Self-Critic이 생성하는 자연어 비평, 논리적 모순 지적 | 전 도메인 (자연어 피드백) |
+| **Correctness Feedback** | `f_i = 1{correct}` | 오라클 정답 비교기를 통한 이진 판정({0, 1}). 이론적 상한선(Upper-bound) 제공 | AIME, GPQA, OmniMath |
 
-### 3. Dual Feedback & Selective Majority Voting (SelMV)
+### 3. 이중 피드백(Dual Feedback) 및 선택적 다수결(SelMV)
 
-- **Dual Feedback Synergy**:
-  언어적 비평을 제공하는 **Model Feedback**과 하드웨어/오라클 검증 신호인 **Execution/Correctness Feedback**을 동시에 결합($f_i = (f_i^{\text{model}}, f_i^{\text{exec}})$). 언어 모델이 '어디가 틀렸는지(Why)'에 대한 맥락과 '실제 통과 여부(Binary Status)'를 상호 보완적으로 학습하도록 유도한다.
-- **Selective Majority Voting (SelMV-$n$)**:
+- **이중 피드백 시너지 (Dual Feedback Synergy)**:
+  언어적 비평을 제공하는 **Model Feedback**과 하드웨어/오라클 검증 신호인 **Execution/Correctness Feedback**을 동시에 결합한다:
+
+$$
+f_i = (f_i^{\text{model}}, f_i^{\text{exec}})
+$$
+
+  언어 모델이 '어디가 틀렸는지(Why)'에 대한 맥락과 '실제 통과 여부(Binary Status)'를 상호 보완적으로 학습하도록 유도한다.
+
+- **선택적 다수결 (Selective Majority Voting, SelMV-$n$)**:
   피드백이 노이즈를 포함하거나 적대적인 위조 피드백(항상 오답이라고 알림) 환경에서, 모델의 신뢰성을 보존하기 위해 유효한 최초 $n$회 시도 중에서 다수결 투표로 최종 답안을 결정하는 앙상블 안전장치.
 
 ---
@@ -126,7 +169,7 @@ $$a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1}) = P(a_t \mid Q, (a_0, f_0), (
 
 | 방법론 (Method) | AIME 2025 | LCB V6 | LiveBench | OmniMath | GPQA Diamond | EvaLearn | 평균 (Avg) |
 |---|---|---|---|---|---|---|---|
-| **ICL ($k \le 20$)** | 71.83% | 62.50% | 65.46% | 53.12% | 78.45% | 40.99% | 62.06% |
+| **ICL (k ≤ 20)** | 71.83% | 62.50% | 65.46% | 53.12% | 78.45% | 40.99% | 62.06% |
 | **ACE (Agentic Playbook)** | 71.98% | 66.94% | 69.38% | 50.33% | 76.58% | 42.54% | 62.96% |
 | **Dynamic CheatSheet (DC)** | 73.33% | 63.59% | 68.58% | 48.64% | 79.56% | 42.68% | 62.73% |
 | **w/o Feedback (NF CoE)** | 77.78% | 72.57% | 60.16% | 65.17% | 80.02% | 44.91% | 66.77% |
@@ -145,7 +188,12 @@ $$a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1}) = P(a_t \mid Q, (a_0, f_0), (
 
 ![Figure 5: Zero-shot 기본 역량과 Learning Gain 간의 Pearson 상관관계](../source/paper/figures/CoE_2026_Bytedance_Seed_fig5_correlation.png)
 
-개선 능력 지표 $\Delta_M = \frac{S_{\max} - S_{\text{base}}}{1 - S_{\text{base}}}$ 분석 결과:
+개선 능력 지표 $\Delta_M$ 정의 및 상관관계 분석:
+
+$$
+\Delta_M = \frac{S_{\max} - S_{\text{base}}}{1 - S_{\text{base}}}
+$$
+
 - LiveBench Code: **$r = 0.97$**, LiveCodeBench V6: **$r = 0.83$**의 극도로 강한 상관관계 확인.
 - 수학 및 지식 도메인을 포함한 전체 평균 **$r = +0.50$** 달성. 즉, 기본 추론 역량이 높은 최상위 모델일수록 피드백을 소화하여 정답으로 전환시키는 메타인지 능력이 뛰어남을 입증.
 
@@ -180,7 +228,7 @@ GPT-5 기반 자동 평가(인간 평가자 100개 샘플 검증 시 $\kappa = 0
 ### Strengths & Significance
 1. **패러다임의 명확한 확장**: 정적 LLM 추론을 환경과 상호작용하는 순차적 의사결정 프로세스(Sequential Decision Process)로 체계화하고, 피드백 유형별 영향을 명확히 규명.
 2. **실용적인 비용-성능 파레토 개선**: 피드백 주입이 토큰 낭비를 유발할 것이라는 통념과 달리, 목적 지향적 추론을 유도하여 19%의 API 비용 절감과 5.6% 성능 향상을 동시에 입증.
-3. **엄밀한 인과 분석**: 6,630개 궤적에 대한 2축(WHY / WHAT) 원인 규명과 통계적 상관관계($r=+0.50$), Spurious 피드백 실험을 통해 단순 벤치마크 점수 나열을 넘어선 학술적 통찰 제공.
+3. **엄밀한 인과 분석**: 6,630개 궤적에 대한 2축(WHY / WHAT) 원인 규명과 통계적 상관관계($r = +0.50$), Spurious 피드백 실험을 통해 단순 벤치마크 점수 나열을 넘어선 학술적 통찰 제공.
 
 ### Limitations
 1. **파라미터 비갱신(No Weight Update)**: 테스트 시점 컨텍스트 내에서의 지속 개선에 집중하였으므로, 세션이 종료되면 축적된 경험이 소멸됨 (진정한 지속 학습을 위한 파라미터 내재화 부재).
