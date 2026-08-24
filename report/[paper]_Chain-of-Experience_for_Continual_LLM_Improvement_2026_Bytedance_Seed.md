@@ -6,22 +6,22 @@
 
 본 논문은 대규모 언어 모델(LLM)이 사전 훈련된 정적 가중치에만 의존하여 각 질의를 독립 사건으로 처리하는 기존 단일 턴(Zero-shot) 추론의 한계를 극복하고, 테스트 시점(**Test-time**)에서 자기 자신 또는 환경과의 상호작용 피드백을 축적하여 지속적으로 개선되는 **Chain-of-Experience (CoE)** 프레임워크를 제안한다. 연구진은 피드백 신호의 풍부도 스펙트럼(No Feedback, Execution, Model Critique, Correctness Oracle)에 따라 CoE를 체계화하고, 8개 최신 LLM(GPT-5, o3, Gemini-2.5 Pro, Claude-4.5 Sonnet 등)을 대상으로 수학·코딩·지식 6개 벤치마크에서 광범위한 실증 분석을 수행하였다.
 
-실험 결과, Self-Feedback 기반 CoE만으로도 기존 테스트 시점 확장 기법(Dynamic CheatSheet, ACE, ICL) 대비 평균 7~9%p 앞서며, 전체 모델 평균 5.6% 성능 향상과 19%의 API 호출 비용 절감을 동시에 달성하였다. 또한 기본 추론 역량($S_{		ext{base}}$)과 테스트 시점 개선 잠재력($\Delta_M$) 간의 강한 양의 상관관계($r=+0.50$, 코딩 $r=0.97$), 스푸리어스(위조) 피드백에 대한 강건성, 모델 개선 요인 분석(Feedback Fidelity 47.7%, Specification Recall 30.0%) 등 추론 시점 지속 학습의 핵심적 동역학을 규명하였다.
+실험 결과, Self-Feedback 기반 CoE만으로도 기존 테스트 시점 확장 기법(Dynamic CheatSheet, ACE, ICL) 대비 평균 7~9%p 앞서며, 전체 모델 평균 5.6% 성능 향상과 19%의 API 호출 비용 절감을 동시에 달성하였다. 또한 기본 추론 역량($S_{\text{base}}$)과 테스트 시점 개선 잠재력($\Delta_M$) 간의 강한 양의 상관관계($r=+0.50$, 코딩 $r=0.97$), 스푸리어스(위조) 피드백에 대한 강건성, 모델 개선 요인 분석(Feedback Fidelity 47.7%, Specification Recall 30.0%) 등 추론 시점 지속 학습의 핵심적 동역학을 규명하였다.
 
 ![Figure 1: CoE 종합 결과 요약 (성능, 효율성, 개선 잠재력)](../source/paper/figures/CoE_2026_Bytedance_Seed_fig1_summary.png)
 
 ### Paper Outline
-- **Section 1: Introduction** — 정적 파라미터 추론 패러다임의 한계 및 경험 축적 기반 지속 개선(CoE)의 필요성 제기.
-- **Section 2: Related Work** — Training-free 테스트 시점 기법(CoT, Search/Verifier) 및 태스크 내/태스크 간 경험 학습(Reflexion, Dynamic CheatSheet, ACE)과의 차별점 정립.
-- **Section 3: Model Improvement via CoE** — 환경 피드백 $F$를 수용한 순차적 의사결정 수식화 및 4단계 피드백 스펙트럼 정의.
-- **Section 4: Experiments** — 8개 SOTA LLM 및 6개 도메인 벤치마크 상의 성능(Finding 1), 비용 효율성(Finding 2), 개선 역량 상관성(Finding 3) 검증.
-- **Section 5: Further Discussion & Conclusion** — 위조 피드백(Spurious feedback) 복원력, 6,630개 궤적 기반 개선 원인 분해, 이중 피드백(Dual Feedback) 시너지, 메모리 압축(DC, SimpleMem) 대비 전체 궤적 보존의 우위성 분석.
+- **Section 1: 서론 (Introduction)** — 정적 파라미터 추론 패러다임의 한계 및 경험 축적 기반 지속 개선(CoE)의 필요성 제기.
+- **Section 2: 관련 연구 (Related Work)** — Training-free 테스트 시점 기법(CoT, Search/Verifier) 및 태스크 내/태스크 간 경험 학습(Reflexion, Dynamic CheatSheet, ACE)과의 차별점 정립.
+- **Section 3: CoE 기반 모델 개선 방법론 (Model Improvement via CoE)** — 환경 피드백 $F$를 수용한 순차적 의사결정 수식화 및 4단계 피드백 스펙트럼 정의.
+- **Section 4: 실험 및 분석 (Experiments)** — 8개 SOTA LLM 및 6개 도메인 벤치마크 상의 성능(Finding 1), 비용 효율성(Finding 2), 개선 역량 상관성(Finding 3) 검증.
+- **Section 5: 심층 토의 및 결론 (Further Discussion & Conclusion)** — 위조 피드백(Spurious feedback) 복원력, 6,630개 궤적 기반 개선 원인 분해, 이중 피드백(Dual Feedback) 시너지, 메모리 압축(DC, SimpleMem) 대비 전체 궤적 보존의 우위성 분석.
 
 ---
 
 ## Problem & Motivation
 
-- **연구 배경**: 인간의 문제 해결은 시행착오와 피드백을 통해 이해도를 점진적으로 갱신하는 연속적 학습 과정이다. 반면 현대 LLM은 배포 후 고정된 상태($P(A|Q)$)로 동작하며, 문제 해결 도중 발생하는 풍부한 환경 상호작용 피드백을 단발성으로 소비한 뒤 폐기하는 구조적 한계를 지닌다.
+- **연구 배경**: 인간의 문제 해결은 시행착오와 피드백을 통해 이해도를 점진적으로 갱신하는 연속적 학습 과정이다. 반면 현대 LLM은 배포 후 고정된 상태($P(A \mid Q)$)로 동작하며, 문제 해결 도중 발생하는 풍부한 환경 상호작용 피드백을 단발성으로 소비한 뒤 폐기하는 구조적 한계를 지닌다.
 - **풀고자 하는 문제 (Task)**: **Test-Time Continual LLM Improvement via Iterative Experience Accumulation** — 모델 파라미터를 역전파로 수정하지 않고, 인퍼런스 컨텍스트 내에서 이전 시도($a_i$)와 피드백($f_i$)의 상호작용 궤적을 순차적으로 축적하여 최적 해법으로 수렴시키는 메커니즘을 정립하고 평가하는 문제.
 - **기존 접근의 한계**:
   1. **Parallel Sampling & Verifier (Best-of-N, Majority Voting)**: 독립적으로 생성된 후보군 중 최적 답안을 사후 선별하지만, 생성 과정에서 얻은 오류 신호가 다음 생성으로 전파되지 않고 버려진다.
@@ -80,12 +80,12 @@ $$a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1}) = P(a_t \mid Q, (a_0, f_0), (
 | **No Feedback** | $f_i = \emptyset$ | 외부 평가 없이 이전 시도 목록($a_0, \dots, a_{t-1}$)만을 컨텍스트에 축적. 모델 내적 반성에만 의존 | 전 도메인 Baseline |
 | **Execution Feedback** | $f_i = \mathcal{E}(Q, a_i)$ | 코드 실행기에서 반환되는 stdout, stderr, 런타임 예외 트레이스, 공개 단위 테스트 통과율 | LiveCodeBench, LiveBench |
 | **Model Feedback** | $f_i = \mathcal{M}_{fb}(Q, a_i)$ | 보조 LLM 또는 Self-Critic이 생성하는 자연어 비평, 논리적 모순 지적, 점수화 | 전 도메인 (자연어 피드백) |
-| **Correctness Feedback** | $f_i = \mathbf{1}\{a_i 	ext{ is correct}\}$ | 오라클 정답 비교기를 통한 이진 판정($\{0, 1\}$). 이론적 상한선(Upper-bound) 제공 | AIME, GPQA, OmniMath |
+| **Correctness Feedback** | $f_i = \mathbf{1}\{a_i \text{ is correct}\}$ | 오라클 정답 비교기를 통한 이진 판정($\{0, 1\}$). 이론적 상한선(Upper-bound) 제공 | AIME, GPQA, OmniMath |
 
 ### 3. Dual Feedback & Selective Majority Voting (SelMV)
 
 - **Dual Feedback Synergy**:
-  언어적 비평을 제공하는 **Model Feedback**과 하드웨어/오라클 검증 신호인 **Execution/Correctness Feedback**을 동시에 결합($f_i = (f_i^{	ext{model}}, f_i^{	ext{exec}})$). 언어 모델이 '어디가 틀렸는지(Why)'에 대한 맥락과 '실제 통과 여부(Binary Status)'를 상호 보완적으로 학습하도록 유도한다.
+  언어적 비평을 제공하는 **Model Feedback**과 하드웨어/오라클 검증 신호인 **Execution/Correctness Feedback**을 동시에 결합($f_i = (f_i^{\text{model}}, f_i^{\text{exec}})$). 언어 모델이 '어디가 틀렸는지(Why)'에 대한 맥락과 '실제 통과 여부(Binary Status)'를 상호 보완적으로 학습하도록 유도한다.
 - **Selective Majority Voting (SelMV-$n$)**:
   피드백이 노이즈를 포함하거나 적대적인 위조 피드백(항상 오답이라고 알림) 환경에서, 모델의 신뢰성을 보존하기 위해 유효한 최초 $n$회 시도 중에서 다수결 투표로 최종 답안을 결정하는 앙상블 안전장치.
 
@@ -138,7 +138,7 @@ $$a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1}) = P(a_t \mid Q, (a_0, f_0), (
 
 ![Figure 5: Zero-shot 기본 역량과 Learning Gain 간의 Pearson 상관관계](../source/paper/figures/CoE_2026_Bytedance_Seed_fig5_correlation.png)
 
-개선 능력 지표 $\Delta_M = rac{S_{\max} - S_{		ext{base}}}{1 - S_{		ext{base}}}$ 분석 결과:
+개선 능력 지표 $\Delta_M = \frac{S_{\max} - S_{\text{base}}}{1 - S_{\text{base}}}$ 분석 결과:
 - LiveBench Code: **$r = 0.97$**, LiveCodeBench V6: **$r = 0.83$**의 극도로 강한 상관관계 확인.
 - 수학 및 지식 도메인을 포함한 전체 평균 **$r = +0.50$** 달성. 즉, 기본 추론 역량이 높은 최상위 모델일수록 피드백을 소화하여 정답으로 전환시키는 메타인지 능력이 뛰어남을 입증.
 
