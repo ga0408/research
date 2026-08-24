@@ -4,9 +4,16 @@
 
 ## Summary & Outline
 
-본 논문은 대규모 언어 모델(LLM)이 사전 훈련된 정적 가중치에만 의존하여 각 질의를 독립 사건으로 처리하는 기존 단일 턴(Zero-shot) 추론의 한계를 극복하고, 테스트 시점(**Test-time**)에서 자기 자신 또는 환경과의 상호작용 피드백을 축적하여 지속적으로 개선되는 **Chain-of-Experience (CoE)** 프레임워크를 제안한다. 연구진은 피드백 신호의 풍부도 스펙트럼(No Feedback, Execution, Model Critique, Correctness Oracle)에 따라 CoE를 체계화하고, 8개 최신 LLM(GPT-5, o3, Gemini-2.5 Pro, Claude-4.5 Sonnet 등)을 대상으로 수학·코딩·지식 6개 벤치마크에서 광범위한 실증 분석을 수행하였다.
+### 초록 요약 (Abstract Translation & Core Summary)
+인간은 경험을 통해 끊임없이 학습하지만, 기존 대규모 언어 모델(LLM)의 평가 및 활용은 사전 훈련된 고정 가중치에만 의존하여 각 인퍼런스를 고립된 사건으로 처리해 왔다. 본 논문은 모델이 테스트 시점(**Test-time**)에서 환경 및 자기 자신과의 반복적인 상호작용을 통해 경험적 궤적(Experiential Traces)을 축적하고 점진적으로 개선되는 **Chain-of-Experience (CoE)** 프레임워크를 제안한다.
 
-실험 결과, Self-Feedback 기반 CoE만으로도 기존 테스트 시점 확장 기법(Dynamic CheatSheet, ACE, ICL) 대비 평균 7~9%p 앞서며, 전체 모델 평균 5.6% 성능 향상과 19%의 API 호출 비용 절감을 동시에 달성하였다. 또한 기본 추론 역량($S_{\text{base}}$)과 테스트 시점 개선 잠재력($\Delta_M$) 간의 강한 양의 상관관계($r=+0.50$, 코딩 $r=0.97$), 스푸리어스(위조) 피드백에 대한 강건성, 모델 개선 요인 분석(Feedback Fidelity 47.7%, Specification Recall 30.0%) 등 추론 시점 지속 학습의 핵심적 동역학을 규명하였다.
+연구진은 피드백 신호의 풍부도 스펙트럼(No Feedback, Execution Feedback, Model Critique, Correctness Oracle)에 따라 CoE를 정식화하고, 8개 최신 추론 모델(GPT-5, o3, Gemini-2.5 Pro, Claude-4.5 Sonnet 등)을 대상으로 수학·코딩·지식 6개 벤치마크에서 체계적인 실증 평가를 진행하였다.
+
+주요 연구 결과는 다음과 같다:
+1. **성능 및 비용 효율성**: Self-Feedback 기반 CoE만으로도 기존 테스트 시점 확장 기법(Dynamic CheatSheet, ACE, ICL) 대비 평균 **7~9%p**, 기본 추론 대비 **5.6%** 성능 향상을 거두며, 불필요한 장문 생성을 억제하여 **19%의 API 호출 비용 절감**을 동시에 달성하였다.
+2. **피드백 결합 시너지**: 모델 비평(Model Feedback)과 정답/실행 신호(Execution/Correctness)를 결합한 이중 피드백(Dual Feedback)이 단일 피드백 대비 추가적인 성능 향상을 견인하였다.
+3. **개선 역량과 기본 능력의 상관관계**: Base 모델의 추론 능력이 뛰어날수록 경험을 소화해 성능을 반등시키는 능력($\Delta_M$)이 유의미하게 증가하였다(전체 평균 Pearson $r=+0.50$, 코딩 태스크 $r=0.97$).
+4. **위조 피드백 강건성 및 빠른 수렴**: 100% 위조된 부정 피드백 환경에서도 선택적 다수결(SelMV)을 통해 비판적 재검토를 유도하며 높은 정확도를 유지하였고, 대부분의 성능 향상이 초기 20 라운드 이내에 빠르게 수렴함을 확인하였다.
 
 ![Figure 1: CoE 종합 결과 요약 (성능, 효율성, 개선 잠재력)](../source/paper/figures/CoE_2026_Bytedance_Seed_fig1_summary.png)
 
