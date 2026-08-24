@@ -63,7 +63,7 @@ $$\mathcal{S}_t = \left\langle \mathcal{A}_t, \mathcal{R}_t, \mathcal{E}_t, \Pi_
 
 ---
 
-## 4. Graph Engineering Architecture: The Core Triad & Evolution
+## 4. Graph Engineering Architecture: Mathematical Formalization
 
 ```
                 ┌──────────────────────────────────────────────┐
@@ -94,21 +94,95 @@ $$\mathcal{S}_t = \left\langle \mathcal{A}_t, \mathcal{R}_t, \mathcal{E}_t, \Pi_
 ```
 
 ### 4.1 Task Organization ($\mathcal{G}_{\text{task}}$)
-- **Goal Decomposition**: Translates high-level unstructured intent into a directed acyclic graph (DAG) or hypergraph $\mathcal{G}_{\text{task}} = (\mathcal{V}_{\text{task}}, \mathcal{E}_{\text{task}})$, where vertices $\mathcal{V}$ denote atomic subtasks and edges $\mathcal{E}$ encode data dependencies, temporal ordering, and conditional execution branches (HuggingGPT, ReWOO, LLMCompiler, Plan-over-Graph, TDAG).
-- **Workflow Optimization**: Formulates graph compilation and execution as structural optimization over candidate execution topologies (AFlow, GPTSwarm, MermaidFlow, DyFlow, EvoFlow, QualityFlow). Includes topological scheduling, parallel branch dispatching, and dynamic path pruning.
+과제 조직화는 비구조적 목표를 방향성 비순환 그래프(DAG) 또는 하이퍼그래프 $\mathcal{G}_{\text{task}}$로 구조화하여 스케줄링 및 실행 흐름을 제어한다:
 
-### 4.2 Agent Coordination ($\mathcal{G}_{\text{cap}}, \mathcal{G}_{\text{team}}, \mathcal{G}_{\text{comm}}$)
-- **Agent Capability Modeling ($\mathcal{G}_{\text{cap}}$)**: Bipartite/attributed graph linking agent entities to verified skills, tool permissions, and contextual reliability metrics (DyLAN, SkillGraph, MasRouter).
-- **Agent Team Organization ($\mathcal{G}_{\text{team}}$)**: Organizational structure mapping agents into hierarchical, decentralized mesh, or dynamic committee structures with explicit authority boundaries and review gates (MetaGPT, ChatDev, Magentic-One, SwarmAgentic, Mixture-of-Agents).
-- **Multi-Agent Communication ($\mathcal{G}_{\text{comm}}$)**: Governs information flow channels, bandwidth throttling, semantic message filtering, and structured handoffs to prevent Quadratic Communication Overhead $O(N^2)$ and message flooding (AgentPrune, AgentDropout, DyTopo).
+$$\mathcal{G}_{\text{task}} = \left\langle \mathcal{V}_{\text{task}}, \mathcal{E}_{\text{task}}, \Phi_{\text{task}}, \Sigma_{\text{task}} \right\rangle$$
 
-### 4.3 Runtime State Management ($\mathcal{G}_{\text{state}}, \mathcal{G}_{\text{exec}}$)
-- **State Recording**: Maintains a global, auditable provenance DAG tracking events, artifact versions, tool execution side-effects, and role commitments across distributed execution threads (LangGraph, Burr, MemTX, SagaLLM, PatchBoard, AgentGit).
-- **Fault Localization**: Analyzes causal dependencies on execution graphs to isolate root causes (e.g., distinguishing whether a failure was caused by bad upstream requirements, incorrect code synthesis, or flaky environment tests) (CausalFlow, ReflexGrad, TDAD, MAST).
-- **Failure Recovery**: Executes transactional rollbacks, scoped sub-graph retries, and dynamic re-routing around failed nodes without discarding verified upstream progress (Atomix, SagaLLM, Cordon).
+- $\mathcal{V}_{\text{task}} = \{v_1, \dots, v_m\}$: 원자적 하위 과제(Subtask/Subgoal) 노드 집합. 각 노드 $v_k = \langle \text{spec}_k, \text{input}_k, \text{output}_k \rangle$.
+- $\mathcal{E}_{\text{task}} \subseteq \mathcal{V}_{\text{task}} \times \mathcal{V}_{\text{task}} \times \mathcal{T}_{\text{dep}}$: 타입화된 의존성 엣지 집합:
+  - **데이터 흐름 의존성 (Dataflow)**: $u \xrightarrow{\text{data}} v \iff \text{output}(u) \subseteq \text{input}(v)$
+  - **선행 제약 (Precedence)**: $u \prec v \iff t_{\text{start}}(v) \ge t_{\text{finish}}(u)$
+  - **조건부 분기 (Conditional)**: $u \xrightarrow{\text{cond}(c)} v$
+  - **검증/승인 게이트 (Review Gate)**: $u \xrightarrow{\text{verify}} v$
+- $\Sigma_{\text{task}}(v) \in \{\text{Pending}, \text{Ready}, \text{Running}, \text{Blocked}, \text{Committed}, \text{Failed}\}$: 런타임 노드 실행 상태.
+- **Ready 상태 전이 조건**:
+  $$\Sigma_{\text{task}}(v) \leftarrow \text{Ready} \iff \forall u \in \text{Parents}(v), \Sigma_{\text{task}}(u) = \text{Committed}$$
+- **워크플로 최적화 (Workflow Optimization as Structural Search)**:
+  $$\mathcal{G}_{\text{task}}^* = \arg\max_{\mathcal{G} \in \Omega(\text{Goal})} \mathbb{E}_{\tau \sim \mathcal{G}}\left[ \mathcal{R}(\tau) - \lambda_1 \cdot \text{Cost}(\tau) - \lambda_2 \cdot \text{Latency}(\tau) \right]$$
+- **임계 경로 메이크스팬 (Critical Path Makespan)**:
+  $$T_{\text{makespan}}(\mathcal{G}_{\text{task}}) = \max_{p \in \text{Paths}(\mathcal{G}_{\text{task}})} \sum_{v \in p} \text{Duration}(v)$$
 
-### 4.4 System Evolution
-- Leverages post-execution evidence and trajectory audits to continuously mutate system graphs across runs. Updates task workflow templates ($\Delta \mathcal{G}_{\text{task}}$), refines agent capability scores ($\Delta \mathcal{G}_{\text{cap}}$), and prunes unproductive communication links ($\Delta \mathcal{G}_{\text{comm}}$) (EvoFlow, QueenBee Planner, CARD, Meta-Team, DyTopo).
+---
+
+### 4.2 Agent Coordination ($\mathcal{G}_{\text{cap}}, \mathcal{G}_{\text{team}}, \mathcal{G}_{\text{comm}}^t$)
+에이전트 조율은 이종 에이전트의 역량 매핑, 팀 위계, 동적 통신 채널을 3대 그래프로 정식화한다:
+
+#### (1) 에이전트 역량 이분 그래프 (Agent Capability Bipartite Graph $\mathcal{G}_{\text{cap}}$)
+$$\mathcal{G}_{\text{cap}} = \left\langle \mathcal{V}_{\text{agent}} \cup \mathcal{V}_{\text{res}}, \mathcal{E}_{\text{cap}}, \mathbf{W}_{\text{cap}} \right\rangle$$
+
+- $\mathcal{V}_{\text{agent}} = \{\mathcal{A}_1, \dots, \mathcal{A}_n\}$: 에이전트 집합.
+- $\mathcal{V}_{\text{res}} = \mathcal{K}_{\text{skills}} \cup \mathcal{T}_{\text{tools}} \cup \mathcal{D}_{\text{data}}$: 자원(스킬, 도구, 데이터베이스) 노드 집합.
+- $\mathcal{E}_{\text{cap}} \subseteq \mathcal{V}_{\text{agent}} \times \mathcal{V}_{\text{res}}$: 소유 및 접근 권한 엣지.
+- $\mathbf{W}_{\text{cap}}(\mathcal{A}_i, r) = \langle \text{proficiency}_{ir}, \text{permission}_{ir}, \text{reliability}_{ir} \rangle$: 역량 가중치 튜플.
+- **에이전트-과제 최적 할당 함수 ($\mu^*: \mathcal{V}_{\text{task}} \to \mathcal{V}_{\text{agent}}$)**:
+  $$\mu^*(v) = \arg\max_{\mathcal{A}_i \in \mathcal{V}_{\text{agent}}} \left[ \text{Match}\left(\mathbf{W}_{\text{cap}}(\mathcal{A}_i), \text{Req}(v)\right) \cdot \text{Avail}(\mathcal{A}_i, t) \right]$$
+
+#### (2) 에이전트 팀 조직 그래프 ($\mathcal{G}_{\text{team}}$)
+$$\mathcal{G}_{\text{team}} = \left\langle \mathcal{V}_{\text{agent}}, \mathcal{E}_{\text{team}}, \text{Role} \right\rangle$$
+
+- $\mathcal{E}_{\text{team}}$: 위계 및 보고 관계($\mathcal{A}_{\text{lead}} \xrightarrow{\text{supervise}} \mathcal{A}_{\text{sub}}$), 피어 협업($\mathcal{A}_i \xleftrightarrow{\text{peer}} \mathcal{A}_j$), 독립 검토 게이트($\mathcal{A}_{\text{worker}} \xrightarrow{\text{submit}} \mathcal{A}_{\text{reviewer}}$).
+
+#### (3) 동적 통신 그래프 ($\mathcal{G}_{\text{comm}}^t$)
+$$\mathcal{G}_{\text{comm}}^t = \left\langle \mathcal{V}_{\text{agent}}, \mathcal{E}_{\text{comm}}^t, \mathbf{M}^t \right\rangle$$
+
+- **동적 통신 가지치기 (Communication Sparsification)**: $O(N^2)$ 메시지 범람을 차단하고 관련성 기반 활성 채널만 유지:
+  $$\mathcal{E}_{\text{comm}}^t = \left\{ (i, j) \in \mathcal{V}_{\text{agent}}^2 \;\middle|\; \text{Score}\left(\mathbf{m}_{i \to j}^t, \text{Context}_j^t\right) \ge \tau_{\text{comm}} \land \text{Perm}(i \to j) = 1 \right\}$$
+- $\mathbf{m}_{i \to j}^t$: 구조화된 교환 메시지 $\langle \text{Sender}, \text{Receiver}, \text{Type}, \text{Payload}, \text{ArtifactID}, t \rangle$.
+
+---
+
+### 4.3 Runtime State Management ($\mathcal{G}_{\text{state}}^t, \mathcal{G}_{\text{exec}}^t$)
+분산 런타임 환경에서 글로벌 상태의 일관성, 인과적 결함 격리 및 부분 롤백을 제어한다:
+
+#### (1) 글로벌 상태 & 인과 실행 그래프 ($\mathcal{G}_{\text{state}}^t, \mathcal{G}_{\text{exec}}^t$)
+$$\mathcal{G}_{\text{state}}^t = \left\langle \mathcal{V}_{\text{event}}^t \cup \mathcal{V}_{\text{art}}^t, \mathcal{E}_{\text{causal}}^t, \mathbf{x}_t \right\rangle$$
+
+- $\mathcal{V}_{\text{event}}^t$: 시간 $t$까지의 실행 이벤트 $e_k = \langle \mathcal{A}_i, \text{action}, \text{args}, \text{result}, t \rangle$.
+- $\mathcal{V}_{\text{art}}^t$: 산출물 버전 $a_k$ (코드 diff, 테스트 로그, 중간 상태 문서).
+- $\mathcal{E}_{\text{causal}}^t$: 인과 의존성 엣지 ($e_1 \xrightarrow{\text{causes}} e_2$, $e \xrightarrow{\text{generates}} a$, $a \xrightarrow{\text{derives}} a'$).
+
+#### (2) 거버넌스 상태 업데이트 게이트 (Governed State Update Gate)
+공유 시스템 상태 $\mathbf{x}_t$로의 반영은 4대 불변성 검증 게이트 $\Gamma_{\text{gate}}$를 통과해야 한다:
+
+$$\mathbf{x}_{t+1} = \begin{cases} \mathbf{x}_t \oplus \Delta \mathbf{x} & \text{if } \Gamma_{\text{gate}}(\Delta \mathbf{x}; \mathbf{x}_t) = \text{True} \\ \mathbf{x}_t & \text{otherwise (Reject / Conflict Flag)} \end{cases}$$
+
+$$\Gamma_{\text{gate}}(\Delta \mathbf{x}) = \text{SchemaCheck}(\Delta \mathbf{x}) \land \text{PermCheck}(\Delta \mathbf{x}) \land \text{InvariantCheck}(\Delta \mathbf{x}, \mathbf{x}_t) \land \text{NoConflict}(\Delta \mathbf{x})$$
+
+#### (3) 인과 결함 국소화 (Causal Fault Localization)
+실행 장애 노드 $v_{\text{fail}}$ 발생 시 인과 조상 집합 $\text{Anc}(v_{\text{fail}})$로부터 근본 원인(Root Cause) 노드 $v_{\text{root}}$를 특정:
+
+$$v_{\text{root}} = \arg\min_{u \in \text{Anc}(v_{\text{fail}})} \left\{ \text{Depth}(u) \;\middle|\; \neg \text{Valid}(u) \land \left( \forall w \in \text{Parents}(u), \text{Valid}(w) \right) \right\}$$
+
+#### (4) 장애 복구 및 회복 경계 (Failure Recovery & Scoped Rollback)
+복구 경계 $\mathcal{B}_{\text{rec}}$를 산출하여 무효화된 서브그래프 $\mathcal{G}_{\text{invalid}}$만 격리하고 부분 재실행:
+
+$$\mathcal{B}_{\text{rec}} = \left\{ u \in \mathcal{V} \;\middle|\; \text{Valid}(u) = \text{True} \land \exists w \in \text{Children}(u), \neg \text{Valid}(w) \right\}$$
+
+$$\mathcal{G}_{\text{exec}}^{\text{recovered}} = \left( \mathcal{G}_{\text{exec}} \setminus \mathcal{G}_{\text{invalid}}(v_{\text{root}}) \right) \cup \text{RePlan}\left( v_{\text{root}}, \text{Context}(\mathcal{B}_{\text{rec}}) \right)$$
+
+---
+
+### 4.4 System Evolution (시스템 진화: 크로스 런 메타 최적화)
+시스템 수준의 영속적 구조 그래프 튜플 $\mathbf{\Theta}_{\text{sys}} = \langle \mathcal{G}_{\text{task}}^0, \mathcal{G}_{\text{cap}}^0, \mathcal{G}_{\text{team}}^0, \mathcal{G}_{\text{comm}}^0 \rangle$에 대해, $k$번째 실행 세션 궤적 $\mathcal{T}_k = \langle \mathcal{G}_{\text{task}}^{(k)}, \mathcal{G}_{\text{coord}}^{(k)}, \mathcal{G}_{\text{state}}^{(k)}, \mathcal{Y}_k \rangle$을 기반으로 크로스 런 갱신을 수행:
+
+$$\mathbf{\Theta}_{\text{sys}}^{(k+1)} = \mathbf{\Theta}_{\text{sys}}^{(k)} \oplus \mathcal{U}_{\text{sys}}\left( \mathbf{\Theta}_{\text{sys}}^{(k)}, \mathcal{T}_k \right)$$
+
+1. **과제 워크플로 진화**:
+   $$\mathcal{G}_{\text{task}}^0 \leftarrow \text{TemplateInduction}\left( \mathcal{G}_{\text{task}}^0, \left\{ \mathcal{G}_{\text{task}}^{(k)} \;\middle|\; \mathcal{Y}_k = \text{Success} \right\} \right)$$
+2. **역량 프로필 갱신**:
+   $$\mathbf{W}_{\text{cap}}(\mathcal{A}_i, r) \leftarrow (1-\alpha)\mathbf{W}_{\text{cap}}(\mathcal{A}_i, r) + \alpha \cdot \text{Feedback}_k(\mathcal{A}_i, r)$$
+3. **통신 위상 최적화**:
+   $$\mathcal{E}_{\text{comm}}^0 \leftarrow \mathcal{E}_{\text{comm}}^0 \setminus \left\{ (i, j) \;\middle|\; \mathbb{E}_k[\text{Utility}(i \to j)] < \epsilon \right\}$$
 
 ---
 
