@@ -6,7 +6,7 @@
 
 ## 1. 논문 개요 및 초록 (Abstract & Problem Definition)
 
-### 1.1 초록 (Abstract 한국어 전문 번역)
+### 1.1 초록 (한국어 번역)
 > "인간은 경험을 통해 끊임없이 학습하지만, 기존의 대규모 언어 모델(LLM) 평가는 추론 시점(Inference-time)의 상호작용을 통해 모델이 스스로 개선되는 역량을 간과해 왔다. 본 논문에서는 LLM이 테스트 시점에 반복적인 경험으로부터 어떻게 학습하는지를 규명하며, 이를 **Chain-of-Experience (CoE)** 설정으로 정의한다. CoE에서 모델은 자기 자신 또는 환경 피드백과의 반복적인 상호작용을 통해 경험적 흔적(Experiential Traces)을 축적하고, 이를 통해 기존 Zero-shot 추론을 넘어서는 지속적 개선 루프를 형성한다.
 >
 > 본 연구에서는 모델 자체의 자기 피드백(Self-feedback)과 정답 여부(Correctness) 신호, 공개 코딩 테스트 통과율과 같은 환경 신호를 포함한 다양한 피드백 메커니즘으로 CoE를 구체화하고, GPT-5, Gemini-2.5 Pro, Claude-4.5 Sonnet을 포함한 8개 최신 LLM을 수학·코딩·지식 도메인에 걸쳐 평가하였다.
@@ -14,9 +14,6 @@
 > 연구 결과, 반복적 경험을 활용하는 접근법은 피드백이 없는 기준선(Baseline)을 일관되게 능가하며, 자기 피드백만으로도 상당한 성능 향상을 거둠과 동시에 전체 과제 및 모델 전반에서 **5.6%의 종합 성능 개선**과 **19%의 API 호출 비용 절감**을 달성함을 입증하였다. 나아가 상호 보완적인 피드백 채널(예: 모델 비평 신호와 정답 신호)을 결합할 경우 추가적인 성능 이득을 얻을 수 있으며, CoE가 기존 테스트 시점 전략 대비 토큰당 더 높은 정확도를 제공함을 규명하였다.
 > 
 > 또한 기본 LLM의 추론 능력과 경험 기반 개선 역량 사이에 유의미한 양의 상관관계가 존재함을 관찰하였으며, 모델이 약하거나 위조된(Spurious) 피드백 환경에서도 높은 강건성을 유지하고, 서로 다른 피드백이 모델 개선의 다양한 측면에 기여하며 대부분의 성능 이득이 초기 반복 단계에서 빠르게 발생함을 확인하였다."
-
-### 1.2 원문 초록 (Original Abstract)
-> "Humans continuously learn from experience, whereas conventional large language model (LLM) evaluations ignore the models’ ability to improve through inference-time interaction. In this paper, we study how LLMs learn from iterative experience at test time, a setting we refer to as Chain-of-Experience (CoE), where models accumulate experiential traces through iterative interactions with self or environmental feedback to form a continual improvement loop beyond zero-shot inference. We instantiate CoE with diverse feedback mechanisms, including model self-feedback and environmental signals such as correctness or public coding test pass rates, and evaluate across math, coding, and knowledge domains using 8 LLMs, including GPT-5, Gemini-2.5 Pro, Claude-4.5 Sonnet. Our study shows that leveraging iterative experience consistently outperforms feedback-free baselines, achieving substantial gains with self feedback alone, alongside a 5.6% overall improvement and 19% lower API cost across tasks and models. We further show that combining complementary feedback channels (e.g., model and correctness signals) yields additional gains, and that CoE delivers higher accuracy per token than existing test-time strategies. We observe a positive correlation between LLM base ability and improvement capacity, and show that models remain robust under weak or spurious feedback, with different feedback contributing to distinct improvement aspects and most gains emerging early in the iterations." 
 
 ---
 
@@ -55,7 +52,7 @@
 ## 3. 주요 벤치마크 실험 결과 (Table 3 & Table 5)
 
 ### Table 3: 6개 벤치마크 대상 LLM 평균 성능 비교 (%)
-> "Average performance comparison (%) across different LLMs on different datasets. For baselines, ICL, ACE, DC stands for few-shot in-context learning, agentic context engineering, and dynamic cheatsheet, respectively."
+> 6개 벤치마크 데이터셋에서 다양한 LLM 모델들의 평균 성능 비교(%). 기준선 기법인 ICL, ACE, DC는 각각 퓨샷 문맥 학습, 에이전틱 컨텍스트 엔지니어링, 다이내믹 치트시트를 의미함.
 
 | 방법론 (Method) | AIME 2025 | LiveCodeBench (V6) | LiveBench (Code) | OmniMath | GPQA Diamond | EvaLearn | 전체 평균 |
 |---|---|---|---|---|---|---|---|
@@ -70,7 +67,7 @@
 | **CoE Correctness/Exec (CEF)** | **89.05%** | **74.50%** | **75.78%** | **79.61%** | **99.52%** | **57.05%** | **79.25%** |
 
 ### Table 5: 토큰 복잡도 대비 정확도 효율성 (Token vs Accuracy)
-> "Token complexity vs. accuracy across methods. CEF: Correctness/Executor Feedback; SF: Self Feedback; NF: No Feedback; DC: Dynamic CheatSheet. Token counts are aggregated across all iterations."
+> 방법론별 누적 소비 토큰 수 대비 정확도 비교. CEF: 정답/실행기 피드백, SF: 자기 피드백, NF: 무피드백, DC: 다이내믹 치트시트. 토큰 수는 전체 반복 턴의 총합임.
 
 | 데이터셋 | 방법론 (Method) | 누적 토큰 수 (Tokens) | 정확도 (Acc, %) |
 |---|---|---|---|
@@ -92,7 +89,7 @@
 ## 4. 이중 피드백(Dual Feedback) 및 메모리 압축 분석 (Table 1)
 
 ### Table 1: Dual Feedback 및 단일 태스크 내 경험 압축 결과 (Claude 4.5 Sonnet)
-> "Dual feedback combines model feedback with correctness (math) or executor (code) signals. Memory-based methods (DC, SimpleMem) are applied within-task with no cross-task leakage. Acc: best accuracy (%) over 20 iterations; Best R: iteration achieving best performance."
+> 모델 피드백과 정답(수학) 또는 실행기(코딩) 신호를 결합한 이중 피드백 및 단일 태스크 내 메모리 압축 기법(DC, SimpleMem) 비교 (Claude 4.5 Sonnet). Acc: 20회 반복 중 최고 정확도(%), Best R: 최고 성능을 달성한 라운드.
 
 | 설정 (Setting) | AIME 2025 Acc | AIME Best Round | LiveBench (Code) Acc | LiveBench Best Round | OmniMath Acc | OmniMath Best Round |
 |---|---|---|---|---|---|---|
@@ -108,7 +105,7 @@
 ## 5. 위조 피드백(Spurious Feedback) 및 선택적 다수결(SelMV) (Table 2)
 
 ### Table 2: 항구적 정답/오답 위조 피드백 환경 성능 및 SelMV 효과
-> "The best performance over 20 iterations under constant 'correct' or 'incorrect' feedback. Selective majority voting (SelMV) helps LLMs maintain performance. Results are averaged over 3 runs."
+> 항구적으로 일관된 '정답' 또는 '오답' 위조 피드백이 주어지는 환경에서의 20회 반복 최고 성능과 선택적 다수결(SelMV) 적용 효과 (3회 평균).
 
 | 피드백 설정 (Feedback Setting) | AIME 2025 (GPT-5 mini) | AIME 2025 (o4-mini) | GPQA Diamond (GPT-5 mini) | GPQA Diamond (o4-mini) |
 |---|---|---|---|---|
