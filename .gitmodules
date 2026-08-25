@@ -25,3 +25,6 @@
 [submodule "source/git/InMind_imlrz"]
 	path = source/git/InMind_imlrz
 	url = https://github.com/imlrz/InMind.git
+[submodule "source/git/LMLM_kilian-group"]
+	path = source/git/LMLM_kilian-group
+	url = https://github.com/kilian-group/LMLM.git
