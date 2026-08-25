@@ -224,23 +224,23 @@ $$G_{\text{task}} = \left\langle V_{\text{task}}, E_{\text{task}}, \Phi_{\text{t
 Agent Coordination은 이종 전문성을 가진 다중 에이전트의 역량, 팀 구조, 통신 채널을 3대 상호보완 그래프로 모델링한다:
 
 1. **에이전트 역량 이분 그래프 (Agent Capability Bipartite Graph $G_{\text{cap}}$)**:
-   $$G_{\text{cap}} = \left\langle V_{\text{agent}} \cup V_{\text{res}}, E_{\text{cap}}, \mathbf{W}_{\text{cap}} \right\rangle$$
+   $$G_{\text{cap}} = \left\langle V_{\text{agent}} \cup V_{\text{res}}, E_{\text{cap}}, W_{\text{cap}} \right\rangle$$
    - $V_{\text{agent}} = \{A_1, \dots, A_n\}$: 에이전트 집합.
    - $V_{\text{res}} = K_{\text{skills}} \cup T_{\text{tools}} \cup D_{\text{data}}$: 자원(스킬, 도구, 데이터베이스) 노드 집합.
    - $E_{\text{cap}} \subseteq V_{\text{agent}} \times V_{\text{res}}$: 소유 및 접근 권한 엣지.
-   - $\mathbf{W}_{\text{cap}}(A_i, r) = \langle \text{proficiency}_{ir}, \text{permission}_{ir}, \text{reliability}_{ir} \rangle$: 역량 가중치 튜플.
+   - $W_{\text{cap}}(A_i, r) = \langle \text{proficiency}_{ir}, \text{permission}_{ir}, \text{reliability}_{ir} \rangle$: 역량 가중치 튜플.
    - **에이전트-과제 최적 할당 함수 ($\mu^*: V_{\text{task}} \to V_{\text{agent}}$)**:
-     $$\mu^*(v) = \arg\max_{A_i \in V_{\text{agent}}} \left[ \text{Match}\left(\mathbf{W}_{\text{cap}}(A_i), \text{Req}(v)\right) \cdot \text{Avail}(A_i, t) \right]$$
+     $$\mu^*(v) = \arg\max_{A_i \in V_{\text{agent}}} \left[ \text{Match}\left(W_{\text{cap}}(A_i), \text{Req}(v)\right) \cdot \text{Avail}(A_i, t) \right]$$
 
 2. **에이전트 팀 조직 그래프 ($G_{\text{team}}$)**:
    $$G_{\text{team}} = \left\langle V_{\text{agent}}, E_{\text{team}}, \text{Role} \right\rangle$$
    - $E_{\text{team}}$: 위계 및 보고 관계($A_{\text{lead}} \xrightarrow{\text{supervise}} A_{\text{sub}}$), 피어 협업($A_i \xleftrightarrow{\text{peer}} A_j$), 독립 검토 게이트($A_{\text{worker}} \xrightarrow{\text{submit}} A_{\text{reviewer}}$).
 
 3. **동적 통신 그래프 ($G_{\text{comm}}^t$)**:
-   $$G_{\text{comm}}^t = \left\langle V_{\text{agent}}, E_{\text{comm}}^t, \mathbf{M}^t \right\rangle$$
+   $$G_{\text{comm}}^t = \left\langle V_{\text{agent}}, E_{\text{comm}}^t, M^t \right\rangle$$
    - **동적 통신 가지치기 (Communication Sparsification)**: $O(N^2)$ 메시지 범람을 차단하고 관련성 기반 활성 채널만 유지:
-     $$E_{\text{comm}}^t = \left\{ (i, j) \in V_{\text{agent}}^2 \;\middle|\; \text{Score}\left(\mathbf{m}_{i \to j}^t, \text{Context}_j^t\right) \ge \tau_{\text{comm}} \land \text{Perm}(i \to j) = 1 \right\}$$
-   - $\mathbf{m}_{i \to j}^t$: 구조화된 교환 메시지 $\langle \text{Sender}, \text{Receiver}, \text{Type}, \text{Payload}, \text{ArtifactID}, t \rangle$.
+     $$E_{\text{comm}}^t = \left\{ (i, j) \in V_{\text{agent}}^2 \;\middle|\; \text{Score}\left(m_{i \to j}^t, \text{Context}_j^t\right) \ge \tau_{\text{comm}} \land \text{Perm}(i \to j) = 1 \right\}$$
+   - $m_{i \to j}^t$: 구조화된 교환 메시지 $\langle \text{Sender}, \text{Receiver}, \text{Type}, \text{Payload}, \text{ArtifactID}, t \rangle$.
 
 ---
 
@@ -251,15 +251,19 @@ Agent Coordination은 이종 전문성을 가진 다중 에이전트의 역량, 
 분산 런타임 환경에서 글로벌 상태의 일관성, 인과적 결함 격리 및 부분 롤백을 정형화한다:
 
 1. **글로벌 상태 & 인과 실행 그래프 ($G_{\text{state}}^t, G_{\text{exec}}^t$)**:
-   $$G_{\text{state}}^t = \left\langle V_{\text{event}}^t \cup V_{\text{art}}^t, E_{\text{causal}}^t, \mathbf{x}_t \right\rangle$$
+   $$G_{\text{state}}^t = \left\langle V_{\text{event}}^t \cup V_{\text{art}}^t, E_{\text{causal}}^t, x_t \right\rangle$$
    - $V_{\text{event}}^t$: 시간 $t$까지의 실행 이벤트 $e_k = \langle A_i, \text{action}, \text{args}, \text{result}, t \rangle$.
    - $V_{\text{art}}^t$: 산출물 버전 $a_k$ (코드 diff, 테스트 로그, 중간 상태 문서).
    - $E_{\text{causal}}^t$: 인과 의존성 엣지 ($e_1 \xrightarrow{\text{causes}} e_2$, $e \xrightarrow{\text{generates}} a$, $a \xrightarrow{\text{derives}} a'$).
 
 2. **거버넌스 상태 업데이트 게이트 (Governed State Update Gate)**:
-   공유 시스템 상태 $\mathbf{x}_t$로의 반영은 4대 불변성 검증 게이트 $\Gamma_{\text{gate}}$를 통과해야 한다:
-   $$\mathbf{x}_{t+1} = \begin{cases} \mathbf{x}_t \oplus \Delta \mathbf{x} & \text{if } \Gamma_{\text{gate}}(\Delta \mathbf{x}; \mathbf{x}_t) = \text{True} \\ \mathbf{x}_t & \text{otherwise (Reject / Conflict Flag)} \end{cases}$$
-   $$\Gamma_{\text{gate}}(\Delta \mathbf{x}) = \text{SchemaCheck}(\Delta \mathbf{x}) \land \text{PermCheck}(\Delta \mathbf{x}) \land \text{InvariantCheck}(\Delta \mathbf{x}, \mathbf{x}_t) \land \text{NoConflict}(\Delta \mathbf{x})$$
+   임의의 에이전트 $A_i$가 제안한 상태 변이(State Mutation) $\Delta x$가 공유 시스템 상태 $x_t$에 영속적으로 반영되기 위해서는 4대 무결성 검증 게이트 $\Gamma_{\text{gate}}$를 반드시 통과해야 한다:
+   $$x_{t+1} = \begin{cases} x_t \oplus \Delta x & \text{if } \Gamma_{\text{gate}}(\Delta x; x_t) = \text{True} \\ x_t & \text{otherwise (Reject / Conflict Flag)} \end{cases}$$
+   $$\Gamma_{\text{gate}}(\Delta x; x_t) = \text{SchemaCheck}(\Delta x) \land \text{PermCheck}(\Delta x) \land \text{InvariantCheck}(\Delta x, x_t) \land \text{NoConflict}(\Delta x)$$
+   - **`SchemaCheck` (스키마 무결성 검증)**: $\Delta x$의 데이터 구조 및 타입 정의가 사전에 정의된 상태 스키마 규격을 충족하는지 검증.
+   - **`PermCheck` (접근 권한 검증)**: 수정을 시도한 에이전트 $A_i$가 대상 상태 객체에 대한 쓰기 권한($\text{permission}_{ir} = 1$)을 보유하고 있는지 확인.
+   - **`InvariantCheck` (불변성 제약 검증)**: $\Delta x$ 적용 후의 상태가 시스템 전역 불변성 규칙(예: 예산 한도, 데드락 방지, 비모순성 제약)을 만족하는지 검사.
+   - **`NoConflict` (동시성 충돌 검증)**: 병렬 실행 중인 타 에이전트의 상태 갱신과의 경합(Race Condition / Write-Write Conflict) 발생 여부 확인.
 
 3. **인과 결함 국소화 (Causal Fault Localization)**:
    실행 장애 노드 $v_{\text{fail}}$ 발생 시 인과 조상 집합 $\text{Anc}(v_{\text{fail}})$로부터 근본 원인(Root Cause) 노드 $v_{\text{root}}$를 특정:
@@ -274,14 +278,14 @@ Agent Coordination은 이종 전문성을 가진 다중 에이전트의 역량, 
 
 #### 3.4 System Evolution (시스템 진화 수식: 크로스 런 메타 최적화)
 
-시스템 수준의 영속적 구조 그래프 튜플 $\mathbf{\Theta}_{\text{sys}} = \langle G_{\text{task}}^0, G_{\text{cap}}^0, G_{\text{team}}^0, G_{\text{comm}}^0 \rangle$에 대해, $k$번째 실행 세션 궤적 $T_k = \langle G_{\text{task}}^{(k)}, G_{\text{coord}}^{(k)}, G_{\text{state}}^{(k)}, Y_k \rangle$을 기반으로 크로스 런 갱신을 수행:
+시스템 수준의 영속적 구조 그래프 튜플 $\Theta_{\text{sys}} = \langle G_{\text{task}}^0, G_{\text{cap}}^0, G_{\text{team}}^0, G_{\text{comm}}^0 \rangle$에 대해, $k$번째 실행 세션 궤적 $T_k = \langle G_{\text{task}}^{(k)}, G_{\text{coord}}^{(k)}, G_{\text{state}}^{(k)}, Y_k \rangle$을 기반으로 크로스 런 갱신을 수행:
 
-$$\mathbf{\Theta}_{\text{sys}}^{(k+1)} = \mathbf{\Theta}_{\text{sys}}^{(k)} \oplus U_{\text{sys}}\left( \mathbf{\Theta}_{\text{sys}}^{(k)}, T_k \right)$$
+$$\Theta_{\text{sys}}^{(k+1)} = \Theta_{\text{sys}}^{(k)} \oplus U_{\text{sys}}\left( \Theta_{\text{sys}}^{(k)}, T_k \right)$$
 
 1. **과제 워크플로 진화**:
    $$G_{\text{task}}^0 \leftarrow \text{TemplateInduction}\left( G_{\text{task}}^0, \left\{ G_{\text{task}}^{(k)} \;\middle|\; Y_k = \text{Success} \right\} \right)$$
 2. **역량 프로필 갱신**:
-   $$\mathbf{W}_{\text{cap}}(A_i, r) \leftarrow (1-\alpha)\mathbf{W}_{\text{cap}}(A_i, r) + \alpha \cdot \text{Feedback}_k(A_i, r)$$
+   $$W_{\text{cap}}(A_i, r) \leftarrow (1-\alpha)W_{\text{cap}}(A_i, r) + \alpha \cdot \text{Feedback}_k(A_i, r)$$
 3. **통신 위상 최적화**:
    $$E_{\text{comm}}^0 \leftarrow E_{\text{comm}}^0 \setminus \left\{ (i, j) \;\middle|\; \mathbb{E}_k[\text{Utility}(i \to j)] < \epsilon \right\}$$
 
