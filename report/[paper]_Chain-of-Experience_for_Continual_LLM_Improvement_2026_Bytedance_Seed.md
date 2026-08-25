@@ -58,7 +58,7 @@
 ![Figure 2: Chain-of-Experience 반복 개선 루프](../source/paper/figures/CoE_2026_Bytedance_Seed_fig2_architecture.png)
 
 ### 1. CoE 순차적 의사결정 프로세스 수식화 (Sequential Decision Process)
-기존 QA 시스템이 $a \sim P(A \mid Q)$의 조건부 확률 분포에서 단일 샘플링을 수행하는 것과 달리, CoE는 환경 피드백 변수 $F$를 도입한다. 환경 $\mathcal{E}$로부터 샘플링된 피드백 $f \sim P'(F \mid Q, a)$를 바탕으로 $t$번째 시점의 응답 $a_t$는 이전의 모든 시도 및 피드백 튜플 $e_i = (a_i, f_i)$의 이력을 조건부로 하여 생성된다:
+기존 QA 시스템이 $a \sim P(A \mid Q)$의 조건부 확률 분포에서 단일 샘플링을 수행하는 것과 달리, CoE는 환경 피드백 변수 $F$를 도입한다. 환경 $E$로부터 샘플링된 피드백 $f \sim P'(F \mid Q, a)$를 바탕으로 $t$번째 시점의 응답 $a_t$는 이전의 모든 시도 및 피드백 튜플 $e_i = (a_i, f_i)$의 이력을 조건부로 하여 생성된다:
 
 $$
 a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1}) = P(a_t \mid Q, (a_0, f_0), (a_1, f_1), \dots, (a_{t-1}, f_{t-1}))
@@ -98,18 +98,18 @@ $$
 2. **실행기 피드백 (Execution Feedback)**:
    
 $$
-f_i = \mathcal{E}(Q, a_i)
+f_i = E(Q, a_i)
 $$
 
-   코드 실행 인터프리터 $\mathcal{E}$에서 반환되는 표준 출력(stdout), 표준 에러(stderr), 예외 스택 트레이스, 공개 단위 테스트 통과 결과 (LiveCodeBench, LiveBench 적용).
+   코드 실행 인터프리터 $E$에서 반환되는 표준 출력(stdout), 표준 에러(stderr), 예외 스택 트레이스, 공개 단위 테스트 통과 결과 (LiveCodeBench, LiveBench 적용).
 
 3. **모델 비평 피드백 (Model Feedback)**:
    
 $$
-f_i = \mathcal{M}_{fb}(Q, a_i)
+f_i = M_{fb}(Q, a_i)
 $$
 
-   보조 LLM 또는 Self-Critic 모델 $\mathcal{M}_{fb}$가 생성하는 자연어 비평, 논리적 모순 지적, 평가 점수 (전 도메인 적용).
+   보조 LLM 또는 Self-Critic 모델 $M_{fb}$가 생성하는 자연어 비평, 논리적 모순 지적, 평가 점수 (전 도메인 적용).
 
 4. **정답 오라클 피드백 (Correctness Feedback)**:
    
@@ -320,7 +320,7 @@ GPT-5 기반 자동 평가(인간 평가자 100개 샘플 검증 시 $\kappa = 0
 
 ### Future Work / Improvements
 1. **Test-time Experience의 파라미터 증류 (Post-Training Integration)**: CoE를 통해 축적된 성공/실패 궤적을 DPO/RL 또는 온라인 가중치 미세조정으로 전이하여 영구 지식화하는 연구.
-2. **에이전트 외부 도구 및 웹 검색 융합**: BrowseComp-Plus와 같은 지식 집약적 과제 해결을 위해 RAG 및 Web Search Tool을 피드백 루프의 환경($\mathcal{E}$)으로 능동 편입.
+2. **에이전트 외부 도구 및 웹 검색 융합**: BrowseComp-Plus와 같은 지식 집약적 과제 해결을 위해 RAG 및 Web Search Tool을 피드백 루프의 환경($E$)으로 능동 편입.
 3. **장기 호라이즌(Long-Horizon) 소프트웨어 엔지니어링 확장**: SWE-bench, OSWorld 등 수십 단계의 액션이 요구되는 복합 에이전트 환경으로 CoE 확장 적용.
 
 ---

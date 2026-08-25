@@ -106,7 +106,7 @@ RoPE는 모델이 토큰(프레임)의 위치를 기억하도록 **벡터를 2�
 ![Figure 2: WorldTrace Memory Architecture Overview](../source/paper/figures/fig2_worldtrace_overview_crop.png)
 
 > **그림 2 분석 (논문 Figure 2 원본)**: 
-> - **전체 구조**: 전체 주의집중 윈도우 $L_{\text{attn}}$를 최근 윈도우 $\mathcal{R}$ ($N_r$ 슬롯)과 먼 과거 요약 캐시 $\mathcal{S}$ ($N_s$ 슬롯)로 분할.
+> - **전체 구조**: 전체 주의집중 윈도우 $L_{\text{attn}}$를 최근 윈도우 $R$ ($N_r$ 슬롯)과 먼 과거 요약 캐시 $S$ ($N_s$ 슬롯)로 분할.
 > - **WorldTrace-Field (좌측 하단)**: 과거 프레임들의 RoPE 회전을 역으로 풀어서 정규 공간(Canonical Domain)에서 평균화한 뒤, 각 슬롯의 Virtual Position $t^v_s$로 재회전하여 시각적 일관성 유지.
 > - **WorldTrace-Landmark (우측 하단)**: 씬 전환 시점의 정규 키(Canonical Key)를 Frozen 상태로 보관하고 쿼리 시점에 $t^v_s$로 동적 회전하여 재방문 회상 달성.
 

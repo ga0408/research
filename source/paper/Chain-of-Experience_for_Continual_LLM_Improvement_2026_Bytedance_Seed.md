@@ -62,7 +62,7 @@ $$
 2. **실행기 피드백 (Execution Feedback)**:
 
 $$
-f_i = \mathcal{E}(Q, a_i)
+f_i = E(Q, a_i)
 $$
 
    인터프리터나 단위 테스트 환경에서 코드를 실행하여 얻는 런타임 오류 로그, 실행 트레이스, 공개 단위 테스트 통과율.
@@ -70,10 +70,10 @@ $$
 3. **모델 비평 피드백 (Model Feedback)**:
 
 $$
-f_i = \mathcal{M}_{fb}(Q, a_i)
+f_i = M_{fb}(Q, a_i)
 $$
 
-   보조 LLM 또는 자기 자신($\mathcal{M}_{fb}$)이 생성하는 자연어 비평(critique), 점수, 또는 구조화된 평가.
+   보조 LLM 또는 자기 자신($M_{fb}$)이 생성하는 자연어 비평(critique), 점수, 또는 구조화된 평가.
 
 4. **정답 오라클 피드백 (Correctness Feedback)**:
 
