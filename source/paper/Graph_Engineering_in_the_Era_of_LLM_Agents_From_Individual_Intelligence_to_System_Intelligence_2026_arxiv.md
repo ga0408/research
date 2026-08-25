@@ -54,8 +54,16 @@ $$\mathcal{S}_t = \left\langle \mathcal{A}_t, \mathcal{R}_t, \mathcal{E}_t, \Pi_
 
 ---
 
-## 3. Fundamental Limitations of Individual Intelligence
+## 3. Fundamental Limitations of Individual Intelligence & Core System Requirements
 
+### 3.1 Five Inherent Requirements of Complex Tasks
+1. **Long-Horizon Execution**: Multi-step reasoning across extended time horizons without context saturation.
+2. **Heterogeneous Expertise**: Task specialization across distinct domain models, tool permissions, and prompt roles without role interference.
+3. **Parallel & Interdependent Dependencies**: Concurrent branch execution and topological dataflow aggregation without serial bottlenecking.
+4. **Independent Verification**: Architectural separation of creator and auditor to eliminate self-preference bias and confirmation bias.
+5. **Persistent State Management**: Durable global provenance and state tracking beyond volatile context windows for transactional rollback.
+
+### 3.2 Four Architectural Mismatches in Single-Agent Loops
 1. **Capacity vs. Workload Mismatch**: As real-world tasks scale in duration and complexity, the volume of required context, tool definitions, intermediate artifacts, and verification traces exceeds the effective attention span and memory budget of any single model (attention dilution, lost-in-the-middle, quadratic compute/latency overhead).
 2. **Context Pollution & Error Cascading**: In a single execution loop, erroneous intermediate outputs, invalid tool responses, or hallucinations contaminate the single context history. Subsequent reasoning steps condition on corrupted priors, causing irrevocable cascading failure.
 3. **Specialization vs. Cognitive Overload**: General-purpose prompting forces one agent to simultaneously act as planner, domain specialist, tool operator, critic, and verifier. Role interference degrades performance compared to specialized agents with focused system prompts, isolated tools, and strict task boundaries.

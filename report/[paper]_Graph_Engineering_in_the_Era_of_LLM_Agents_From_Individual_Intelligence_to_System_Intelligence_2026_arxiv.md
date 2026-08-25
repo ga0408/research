@@ -82,6 +82,18 @@ Task Start ──► Subtask A (Agent 1) ──► Validation Gate ──► Sub
                      └──────────────── Causal Rollback & Re-dispatch
 ```
 
+### 복합 실세계 과제의 5대 본질적 요구조건 (Core Requirements of Complex Real-World Tasks)
+
+단일 에이전트(Individual Intelligence)가 복잡한 실세계 산업 과제를 완수하지 못하는 근본 원인은 다음과 같은 5가지 본질적 시스템 요구조건을 단일 실행 루프로는 수용할 수 없기 때문이다:
+
+| # | 핵심 요구조건 | 개념 정의 및 단일 에이전트의 실패 메커니즘 | 실세계 대표 사례 | 그래프 엔지니어링 대응 기제 |
+|---|---|---|---|---|
+| 1 | **장기 실행<br>(Long-Horizon Execution)** | 수십~수백 단계에 걸친 다단계 추론과 장시간 연속 실행 능력. 단계가 누적될수록 컨텍스트 길이 초과 및 주의력 희석(Attention Dilution)으로 후반부 의사결정 품질 급락 | 대규모 코드베이스 리팩토링, 전임상 신약 후보물질 탐색 | 상태 체크포인팅 및 서브태스크 분할 스케줄링 |
+| 2 | **이종 전문성<br>(Heterogeneous Expertise)** | 서로 다른 전문 지식, 도구(Tools), 시스템 권한(Permissions), 백본 모델을 가진 전문 에이전트 간의 역할 분담. 단일 모델에 전 역할을 프롬프트로 몰아넣을 경우 역할 간섭(Role Interference) 및 인지 과부하 초래 | 기획자, 보안 감사관, 백엔드 엔지니어, QA 테스터 협업 | $\mathcal{G}_{\text{cap}}$ (역량 그래프), $\mathcal{G}_{\text{team}}$ (팀 토폴로지) |
+| 3 | **병렬 의존성<br>(Parallel & Interdependent Dependencies)** | 동시 실행 가능한 독립 작업과 결과 취합이 필수적인 선후행 의존 작업의 복합 구조. 단일 에이전트 루프는 본질적으로 작업을 직렬화(Serialization)하여 전체 지연 시간(Makespan) 극대화 | 로그 분석·재현 환경 구성·코드 감사의 동시 병렬 진행 후 패치 작성으로 취합 | $\mathcal{G}_{\text{task}}$ (DAG 과제 분해 및 위상 정렬 스케줄링) |
+| 4 | **독립적 검증<br>(Independent Verification)** | 산출물 생성자(Creator)와 검증자(Auditor)의 인지 컨텍스트 및 권한 분리. 단일 에이전트가 생성과 검증을 동시 수행 시 자기 확증 편향(Confirmation Bias) 및 환각 맹점 발생 | Coder의 구현물을 독립된 Reviewer 에이전트와 격리 샌드박스 테스트 러너가 감사 | Review Gates, $\mathcal{E}_{\text{verify}}$ (검증 게이트 엣지) |
+| 5 | **지속적 상태 보존<br>(Persistent State Management)** | 휘발성 컨텍스트를 넘어 시스템 전반의 이벤트, 산출물 버전, 데이터 계보(Provenance)를 영속 관리. 단일 에이전트 크래시 또는 오염 시 전체 작업을 처음부터 재시작해야 하는 결함 방지 | 수십 개 파일 수정 중 3개 파일 컴파일 실패 시 원인 커밋만 식별하여 직전 유효 상태로 롤백 | $\mathcal{G}_{\text{state}}$ (인과 계보 DAG), $\mathcal{B}_{\text{rec}}$ (회복 경계 롤백) |
+
 ---
 
 ## Contributions
