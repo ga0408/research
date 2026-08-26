@@ -138,7 +138,7 @@ Task Start ──► Subtask A (Agent 1) ──► Validation Gate ──► Sub
 #### 2.1 개별 에이전트 (Individual Agent)
 개별 에이전트는 환경을 인식하고, 결정을 내리며, 행동을 취하고, 피드백에 따라 적응하는 자율적 계산 단위이다:
 
-$$A_i = \text{Loop}\left(F_i, H_i; s_i^t\right)$$
+$$A_i = \text{Loop}(F_i, H_i; s_i^t)$$
 
 - $F_i$: 인지 핵심(Cognitive Core) 역할을 수행하는 Foundation Model.
 - $H_i$: 모델의 내재적 역량을 확장하는 Agent Harness (인식, 컨텍스트 조립, 메모리 접근, 도구 호출, 스킬 합성, 런타임 제어 인터페이스).
@@ -148,7 +148,7 @@ $$A_i = \text{Loop}\left(F_i, H_i; s_i^t\right)$$
 #### 2.2 에이전트 시스템 (Agent System)
 에이전트 시스템은 공유 자원, 외부 환경, 조율 메커니즘을 통해 상호작용하는 다중 에이전트의 결합체이다:
 
-$$S_t = \left\langle A_t, R_t, E_t, \Pi_t, x_t \right\rangle$$
+$$S_t = \langle A_t, R_t, E_t, \Pi_t, x_t \rangle$$
 
 - $A_t = \{A_1, \dots, A_n\}$: 에이전트 팀(Agent Team). 각 에이전트는 독립된 $F_i, H_i, s_i^t$를 보유.
 - $R_t$: 공유 자원(Shared Resources: 도구 레지스트리, 공용 메모리/KB, 독립 검증기, 인간 개입 채널).
@@ -197,7 +197,7 @@ $$S_t = \left\langle A_t, R_t, E_t, \Pi_t, x_t \right\rangle$$
 
 Task Organization은 비구조적 고수준 목표를 방향성 비순환 그래프(DAG) 또는 하이퍼그래프 $G_{\text{task}}$로 구조화하여 스케줄링 및 실행 흐름을 제어한다:
 
-$$G_{\text{task}} = \left\langle V_{\text{task}}, E_{\text{task}}, \Phi_{\text{task}}, \Sigma_{\text{task}} \right\rangle$$
+$$G_{\text{task}} = \langle V_{\text{task}}, E_{\text{task}}, \Phi_{\text{task}}, \Sigma_{\text{task}} \rangle$$
 
 1. **노드 및 엣지 정의**:
    - $V_{\text{task}} = \{v_1, \dots, v_m\}$: 하위 과제(Subtask/Subgoal) 노드 집합. 각 노드 $v_k = \langle \text{spec}_k, \text{input}_k, \text{output}_k \rangle$.
@@ -211,7 +211,7 @@ $$G_{\text{task}} = \left\langle V_{\text{task}}, E_{\text{task}}, \Phi_{\text{t
    - **Ready 상태 전이 조건**:
      $$\Sigma_{\text{task}}(v) \leftarrow \text{Ready} \iff \forall u \in \text{Parents}(v), \Sigma_{\text{task}}(u) = \text{Committed}$$
 3. **워크플로 구조 최적화 (Workflow Optimization as Structural Search)**:
-   $$G_{\text{task}}^* = \arg\max_{G \in \Omega(\text{Goal})} \mathbb{E}_{\tau \sim G}\left[ R(\tau) - \lambda_1 \cdot \text{Cost}(\tau) - \lambda_2 \cdot \text{Latency}(\tau) \right]$$
+   $$G_{\text{task}}^* = \arg\max_{G \in \Omega(\text{Goal})} \mathbb{E}_{\tau \sim G}[ R(\tau) - \lambda_1 \cdot \text{Cost}(\tau) - \lambda_2 \cdot \text{Latency}(\tau) ]$$
    - **임계 경로 메이크스팬 (Critical Path Makespan)**:
      $$T_{\text{makespan}}(G_{\text{task}}) = \max_{p \in \text{Paths}(G_{\text{task}})} \sum_{v \in p} \text{Duration}(v)$$
 
@@ -224,22 +224,22 @@ $$G_{\text{task}} = \left\langle V_{\text{task}}, E_{\text{task}}, \Phi_{\text{t
 Agent Coordination은 이종 전문성을 가진 다중 에이전트의 역량, 팀 구조, 통신 채널을 3대 상호보완 그래프로 모델링한다:
 
 1. **에이전트 역량 이분 그래프 (Agent Capability Bipartite Graph $G_{\text{cap}}$)**:
-   $$G_{\text{cap}} = \left\langle V_{\text{agent}} \cup V_{\text{res}}, E_{\text{cap}}, W_{\text{cap}} \right\rangle$$
+   $$G_{\text{cap}} = \langle V_{\text{agent}} \cup V_{\text{res}}, E_{\text{cap}}, W_{\text{cap}} \rangle$$
    - $V_{\text{agent}} = \{A_1, \dots, A_n\}$: 에이전트 집합.
    - $V_{\text{res}} = K_{\text{skills}} \cup T_{\text{tools}} \cup D_{\text{data}}$: 자원(스킬, 도구, 데이터베이스) 노드 집합.
    - $E_{\text{cap}} \subseteq V_{\text{agent}} \times V_{\text{res}}$: 소유 및 접근 권한 엣지.
    - $W_{\text{cap}}(A_i, r) = \langle \text{proficiency}_{ir}, \text{permission}_{ir}, \text{reliability}_{ir} \rangle$: 역량 가중치 튜플.
    - **에이전트-과제 최적 할당 함수 ($\mu^*: V_{\text{task}} \to V_{\text{agent}}$)**:
-     $$\mu^*(v) = \arg\max_{A_i \in V_{\text{agent}}} \left[ \text{Match}\left(W_{\text{cap}}(A_i), \text{Req}(v)\right) \cdot \text{Avail}(A_i, t) \right]$$
+     $$\mu^*(v) = \arg\max_{A_i \in V_{\text{agent}}} [ \text{Match}(W_{\text{cap}}(A_i), \text{Req}(v)) \cdot \text{Avail}(A_i, t) ]$$
 
 2. **에이전트 팀 조직 그래프 ($G_{\text{team}}$)**:
-   $$G_{\text{team}} = \left\langle V_{\text{agent}}, E_{\text{team}}, \text{Role} \right\rangle$$
+   $$G_{\text{team}} = \langle V_{\text{agent}}, E_{\text{team}}, \text{Role} \rangle$$
    - $E_{\text{team}}$: 위계 및 보고 관계($A_{\text{lead}} \xrightarrow{\text{supervise}} A_{\text{sub}}$), 피어 협업($A_i \xleftrightarrow{\text{peer}} A_j$), 독립 검토 게이트($A_{\text{worker}} \xrightarrow{\text{submit}} A_{\text{reviewer}}$).
 
 3. **동적 통신 그래프 ($G_{\text{comm}}^t$)**:
-   $$G_{\text{comm}}^t = \left\langle V_{\text{agent}}, E_{\text{comm}}^t, M^t \right\rangle$$
+   $$G_{\text{comm}}^t = \langle V_{\text{agent}}, E_{\text{comm}}^t, M^t \rangle$$
    - **동적 통신 가지치기 (Communication Sparsification)**: $O(N^2)$ 메시지 범람을 차단하고 관련성 기반 활성 채널만 유지:
-     $$E_{\text{comm}}^t = \left\{ (i, j) \in V_{\text{agent}}^2 \;\middle|\; \text{Score}\left(m_{i \to j}^t, \text{Context}_j^t\right) \ge \tau_{\text{comm}} \land \text{Perm}(i \to j) = 1 \right\}$$
+     $$E_{\text{comm}}^t = \{ (i, j) \in V_{\text{agent}}^2 \mid \text{Score}(m_{i \to j}^t, \text{Context}_j^t) \ge \tau_{\text{comm}} \land \text{Perm}(i \to j) = 1 \}$$
    - $m_{i \to j}^t$: 구조화된 교환 메시지 $\langle \text{Sender}, \text{Receiver}, \text{Type}, \text{Payload}, \text{ArtifactID}, t \rangle$.
 
 ---
@@ -251,7 +251,7 @@ Agent Coordination은 이종 전문성을 가진 다중 에이전트의 역량, 
 분산 런타임 환경에서 글로벌 상태의 일관성, 인과적 결함 격리 및 부분 롤백을 정형화한다:
 
 1. **글로벌 상태 & 인과 실행 그래프 ($G_{\text{state}}^t, G_{\text{exec}}^t$)**:
-   $$G_{\text{state}}^t = \left\langle V_{\text{event}}^t \cup V_{\text{art}}^t, E_{\text{causal}}^t, x_t \right\rangle$$
+   $$G_{\text{state}}^t = \langle V_{\text{event}}^t \cup V_{\text{art}}^t, E_{\text{causal}}^t, x_t \rangle$$
    - $V_{\text{event}}^t$: 시간 $t$까지의 실행 이벤트 $e_k = \langle A_i, \text{action}, \text{args}, \text{result}, t \rangle$.
    - $V_{\text{art}}^t$: 산출물 버전 $a_k$ (코드 diff, 테스트 로그, 중간 상태 문서).
    - $E_{\text{causal}}^t$: 인과 의존성 엣지 ($e_1 \xrightarrow{\text{causes}} e_2$, $e \xrightarrow{\text{generates}} a$, $a \xrightarrow{\text{derives}} a'$).
@@ -267,12 +267,12 @@ Agent Coordination은 이종 전문성을 가진 다중 에이전트의 역량, 
 
 3. **인과 결함 국소화 (Causal Fault Localization)**:
    실행 장애 노드 $v_{\text{fail}}$ 발생 시 인과 조상 집합 $\text{Anc}(v_{\text{fail}})$로부터 근본 원인(Root Cause) 노드 $v_{\text{root}}$를 특정:
-   $$v_{\text{root}} = \arg\min_{u \in \text{Anc}(v_{\text{fail}})} \left\{ \text{Depth}(u) \;\middle|\; \neg \text{Valid}(u) \land \left( \forall w \in \text{Parents}(u), \text{Valid}(w) \right) \right\}$$
+   $$v_{\text{root}} = \arg\min_{u \in \text{Anc}(v_{\text{fail}})} \{ \text{Depth}(u) \mid \neg \text{Valid}(u) \land ( \forall w \in \text{Parents}(u), \text{Valid}(w) ) \}$$
 
 4. **장애 복구 및 회복 경계 (Failure Recovery & Scoped Rollback)**:
    복구 경계 $B_{\text{rec}}$를 산출하여 무효화된 서브그래프 $G_{\text{invalid}}$만 격리하고 부분 재실행:
-   $$B_{\text{rec}} = \left\{ u \in V \;\middle|\; \text{Valid}(u) = \text{True} \land \exists w \in \text{Children}(u), \neg \text{Valid}(w) \right\}$$
-   $$G_{\text{exec}}^{\text{recovered}} = \left( G_{\text{exec}} \setminus G_{\text{invalid}}(v_{\text{root}}) \right) \cup \text{RePlan}\left( v_{\text{root}}, \text{Context}(B_{\text{rec}}) \right)$$
+   $$B_{\text{rec}} = \{ u \in V \mid \text{Valid}(u) = \text{True} \land \exists w \in \text{Children}(u), \neg \text{Valid}(w) \}$$
+   $$G_{\text{exec}}^{\text{recovered}} = ( G_{\text{exec}} \setminus G_{\text{invalid}}(v_{\text{root}}) ) \cup \text{RePlan}( v_{\text{root}}, \text{Context}(B_{\text{rec}}) )$$
 
 ---
 
@@ -280,14 +280,14 @@ Agent Coordination은 이종 전문성을 가진 다중 에이전트의 역량, 
 
 시스템 수준의 영속적 구조 그래프 튜플 $\Theta_{\text{sys}} = \langle G_{\text{task}}^0, G_{\text{cap}}^0, G_{\text{team}}^0, G_{\text{comm}}^0 \rangle$에 대해, $k$번째 실행 세션 궤적 $T_k = \langle G_{\text{task}}^{(k)}, G_{\text{coord}}^{(k)}, G_{\text{state}}^{(k)}, Y_k \rangle$을 기반으로 크로스 런 갱신을 수행:
 
-$$\Theta_{\text{sys}}^{(k+1)} = \Theta_{\text{sys}}^{(k)} \oplus U_{\text{sys}}\left( \Theta_{\text{sys}}^{(k)}, T_k \right)$$
+$$\Theta_{\text{sys}}^{(k+1)} = \Theta_{\text{sys}}^{(k)} \oplus U_{\text{sys}}( \Theta_{\text{sys}}^{(k)}, T_k )$$
 
 1. **과제 워크플로 진화**:
-   $$G_{\text{task}}^0 \leftarrow \text{TemplateInduction}\left( G_{\text{task}}^0, \left\{ G_{\text{task}}^{(k)} \;\middle|\; Y_k = \text{Success} \right\} \right)$$
+   $$G_{\text{task}}^0 \leftarrow \text{TemplateInduction}( G_{\text{task}}^0, \{ G_{\text{task}}^{(k)} \mid Y_k = \text{Success} \} )$$
 2. **역량 프로필 갱신**:
    $$W_{\text{cap}}(A_i, r) \leftarrow (1-\alpha)W_{\text{cap}}(A_i, r) + \alpha \cdot \text{Feedback}_k(A_i, r)$$
 3. **통신 위상 최적화**:
-   $$E_{\text{comm}}^0 \leftarrow E_{\text{comm}}^0 \setminus \left\{ (i, j) \;\middle|\; \mathbb{E}_k[\text{Utility}(i \to j)] < \epsilon \right\}$$
+   $$E_{\text{comm}}^0 \leftarrow E_{\text{comm}}^0 \setminus \{ (i, j) \mid \mathbb{E}_k[\text{Utility}(i \to j)] < \epsilon \}$$
 
 ---
 
