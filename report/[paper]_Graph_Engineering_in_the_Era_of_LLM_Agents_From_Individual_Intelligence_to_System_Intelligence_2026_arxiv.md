@@ -71,15 +71,17 @@
 
 ```
 [단일 에이전트의 컨텍스트 오염 및 실패 연쇄]
-Task Start ──► Step 1 (OK) ──► Step 2 (도구 오작동/환각) ──► Step 3 (오염된 상태 조건화) ──► Total Failure
-                                         │
-                                [컨텍스트 윈도우 오염]
-                                [독립 검증 부재 / 롤백 불가]
+Task Start ──► Step 1 (정상) ──► Step 2 (환각/오작동) ──► Step 3 (오염 상태 조건화) ──► Total Crash
+                                           │
+                                  [컨텍스트 윈도우 오염]
+                                  [독립 검증 부재 / 롤백 불가]
 
-[그래프 엔지니어링 기반 분산 격리 및 복구]
-Task Start ──► Subtask A (Agent 1) ──► Validation Gate ──► Subtask B (Agent 2) ──► Success
-                     │                        │ (실패 검출)
-                     └──────────────── Causal Rollback & Re-dispatch
+[그래프 엔지니어링의 분산 격리 및 인과적 복구]
+Task Start ──► Subtask A (Agent 1) ──► Validation Gate ──(Pass)──► Subtask B (Agent 2) ──► Success
+                     ▲                        │
+                     │                        ▼ (Fail 검출)
+                     └── Causal Rollback ◄────┘
+                         & Re-dispatch
 ```
 
 ### 복합 실세계 과제의 5대 본질적 요구조건 (Core Requirements of Complex Real-World Tasks)
