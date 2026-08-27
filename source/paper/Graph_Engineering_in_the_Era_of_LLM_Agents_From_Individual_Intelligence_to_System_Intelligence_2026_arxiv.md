@@ -7,28 +7,32 @@
 ## 1. Preliminaries & Formal Definitions
 
 ### 1.1 Individual Agent
-An Individual Agent is an autonomous computational entity that perceives its environment, makes decisions, executes actions, and adapts its behavior according to feedback. It consists primarily of a Foundation Model $F_i$, an Agent Harness $H_i$, and an Agent Loop:
+An Individual Agent is an autonomous computational entity that perceives its environment, makes decisions, executes actions, and adapts its behavior according to feedback. It consists primarily of a Foundation Model `F_i`, an Agent Harness `H_i`, and an Agent Loop:
 
-$$A_i = \text{Loop}(F_i, H_i; s_i^t)$$
+```
+A_i = Loop(F_i, H_i; s_i^t)
+```
 
-- $F_i$: Foundation Model serving as the cognitive core (language understanding, reasoning, planning, code/content generation).
-- $H_i$: Agent Harness extending intrinsic capabilities through perception, context construction, memory/knowledge access, tool invocation, reusable skills, and runtime governance.
-- $s_i^t$: Local runtime state of agent $i$ at time $t$.
-- $\text{Loop}$: Iterative execution cycle governing continuous perception $\rightarrow$ reasoning $\rightarrow$ action $\rightarrow$ feedback processing $\rightarrow$ state update.
+- `F_i`: Foundation Model serving as the cognitive core (language understanding, reasoning, planning, code/content generation).
+- `H_i`: Agent Harness extending intrinsic capabilities through perception, context construction, memory/knowledge access, tool invocation, reusable skills, and runtime governance.
+- `s_i^t`: Local runtime state of agent `i` at time `t`.
+- `Loop`: Iterative execution cycle governing continuous perception → reasoning → action → feedback processing → state update.
 
 ### 1.2 Agent System & System Intelligence
-An Agent System extends the Individual Agent abstraction to a collection of agents operating via shared resources, environments, and coordination mechanisms at time $t$:
+An Agent System extends the Individual Agent abstraction to a collection of agents operating via shared resources, environments, and coordination mechanisms at time `t`:
 
-$$S_t = \langle A_t, R_t, E_t, \Pi_t, x_t \rangle$$
+```
+S_t = <A_t, R_t, E_t, Π_t, x_t>
+```
 
-- $A_t = \{A_1, \dots, A_n\}$: Agent Team, where each agent possesses its own model, harness, loop, and local state.
-- $R_t$: Shared Resources (tools, model endpoints, shared memory/KBs, verifiers, human-in-the-loop).
-- $E_t$: External Environment providing observations and receiving actions.
-- $\Pi_t$: Coordination Mechanisms governing task assignment, communication routing, consensus, and fault handling.
-- $x_t$: Global System State describing system-wide task progress, artifact states, resource locks, and failure records.
+- `A_t = {A_1, ..., A_n}`: Agent Team, where each agent possesses its own model, harness, loop, and local state.
+- `R_t`: Shared Resources (tools, model endpoints, shared memory/KBs, verifiers, human-in-the-loop).
+- `E_t`: External Environment providing observations and receiving actions.
+- `Π_t`: Coordination Mechanisms governing task assignment, communication routing, consensus, and fault handling.
+- `x_t`: Global System State describing system-wide task progress, artifact states, resource locks, and failure records.
 
 **Definition of System Intelligence:**
-> *"System Intelligence is the ability of an agent system $S_t$ to organize and coordinate multiple intelligent components into a coherent, adaptive whole that pursues a shared objective across changing conditions, heterogeneous expertise, parallel branches, and partial failures."*
+> *"System Intelligence is the ability of an agent system `S_t` to organize and coordinate multiple intelligent components into a coherent, adaptive whole that pursues a shared objective across changing conditions, heterogeneous expertise, parallel branches, and partial failures."*
 
 ---
 
@@ -101,101 +105,135 @@ $$S_t = \langle A_t, R_t, E_t, \Pi_t, x_t \rangle$$
                         └───────────────────────────┘
 ```
 
-### 4.1 Task Organization ($G_{\text{task}}$)
-과제 조직화는 비구조적 목표를 방향성 비순환 그래프(DAG) 또는 하이퍼그래프 $G_{\text{task}}$로 구조화하여 스케줄링 및 실행 흐름을 제어한다:
+### 4.1 Task Organization (`G_task`)
+과제 조직화는 비구조적 목표를 방향성 비순환 그래프(DAG) 또는 하이퍼그래프 `G_task`로 구조화하여 스케줄링 및 실행 흐름을 제어한다:
 
-$$G_{\text{task}} = \langle V_{\text{task}}, E_{\text{task}}, \Phi_{\text{task}}, \Sigma_{\text{task}} \rangle$$
+```
+G_task = <V_task, E_task, Φ_task, Σ_task>
+```
 
-- $V_{\text{task}} = \{v_1, \dots, v_m\}$: 원자적 하위 과제(Subtask/Subgoal) 노드 집합. 각 노드 $v_k = \langle \text{spec}_k, \text{input}_k, \text{output}_k \rangle$.
-- $E_{\text{task}} \subseteq V_{\text{task}} \times V_{\text{task}} \times T_{\text{dep}}$: 타입화된 의존성 엣지 집합:
-  - **데이터 흐름 의존성 (Dataflow)**: $u \xrightarrow{\text{data}} v \iff \text{output}(u) \subseteq \text{input}(v)$
-  - **선행 제약 (Precedence)**: $u \prec v \iff t_{\text{start}}(v) \ge t_{\text{finish}}(u)$
-  - **조건부 분기 (Conditional)**: $u \xrightarrow{\text{cond}(c)} v$
-  - **검증/승인 게이트 (Review Gate)**: $u \xrightarrow{\text{verify}} v$
-- $\Sigma_{\text{task}}(v) \in \{\text{Pending}, \text{Ready}, \text{Running}, \text{Blocked}, \text{Committed}, \text{Failed}\}$: 런타임 노드 실행 상태.
+- `V_task = {v_1, ..., v_m}`: 원자적 하위 과제(Subtask/Subgoal) 노드 집합. 각 노드 `v_k = <spec_k, input_k, output_k>`.
+- `E_task ⊆ V_task × V_task × T_dep`: 타입화된 의존성 엣지 집합:
+  - **데이터 흐름 의존성 (Dataflow)**: `u —(data)→ v  <=>  output(u) ⊆ input(v)`
+  - **선행 제약 (Precedence)**: `u ≺ v  <=>  t_start(v) ≥ t_finish(u)`
+  - **조건부 분기 (Conditional)**: `u —(cond(c))→ v`
+  - **검증/승인 게이트 (Review Gate)**: `u —(verify)→ v`
+- `Σ_task(v) ∈ {Pending, Ready, Running, Blocked, Committed, Failed}`: 런타임 노드 실행 상태.
 - **Ready 상태 전이 조건**:
-  $$\Sigma_{\text{task}}(v) \leftarrow \text{Ready} \iff \forall u \in \text{Parents}(v), \Sigma_{\text{task}}(u) = \text{Committed}$$
+  ```
+  Σ_task(v) ← Ready   <=>   ∀u ∈ Parents(v), Σ_task(u) = Committed
+  ```
 - **워크플로 최적화 (Workflow Optimization as Structural Search)**:
-  $$G_{\text{task}}^* = \arg\max_{G \in \Omega(\text{Goal})} \mathbb{E}_{\tau \sim G}[ R(\tau) - \lambda_1 \cdot \text{Cost}(\tau) - \lambda_2 \cdot \text{Latency}(\tau) ]$$
+  ```
+  G_task* = argmax_{G ∈ Ω(Goal)} E_{τ ~ G}[ R(τ) - λ_1 * Cost(τ) - λ_2 * Latency(τ) ]
+  ```
 - **임계 경로 메이크스팬 (Critical Path Makespan)**:
-  $$T_{\text{makespan}}(G_{\text{task}}) = \max_{p \in \text{Paths}(G_{\text{task}})} \sum_{v \in p} \text{Duration}(v)$$
+  ```
+  T_makespan(G_task) = max_{p ∈ Paths(G_task)} Σ_{v ∈ p} Duration(v)
+  ```
 
 ---
 
-### 4.2 Agent Coordination ($G_{\text{cap}}, G_{\text{team}}, G_{\text{comm}}^t$)
+### 4.2 Agent Coordination (`G_cap, G_team, G_comm^t`)
 에이전트 조율은 이종 에이전트의 역량 매핑, 팀 위계, 동적 통신 채널을 3대 그래프로 정식화한다:
 
-#### (1) 에이전트 역량 이분 그래프 (Agent Capability Bipartite Graph $G_{\text{cap}}$)
-$$G_{\text{cap}} = \langle V_{\text{agent}} \cup V_{\text{res}}, E_{\text{cap}}, W_{\text{cap}} \rangle$$
+#### (1) 에이전트 역량 이분 그래프 (Agent Capability Bipartite Graph `G_cap`)
+```
+G_cap = <V_agent ∪ V_res, E_cap, W_cap>
+```
 
-- $V_{\text{agent}} = \{A_1, \dots, A_n\}$: 에이전트 집합.
-- $V_{\text{res}} = K_{\text{skills}} \cup T_{\text{tools}} \cup D_{\text{data}}$: 자원(스킬, 도구, 데이터베이스) 노드 집합.
-- $E_{\text{cap}} \subseteq V_{\text{agent}} \times V_{\text{res}}$: 소유 및 접근 권한 엣지.
-- $W_{\text{cap}}(A_i, r) = \langle \text{proficiency}_{ir}, \text{permission}_{ir}, \text{reliability}_{ir} \rangle$: 역량 가중치 튜플.
-- **에이전트-과제 최적 할당 함수 ($\mu^*: V_{\text{task}} \to V_{\text{agent}}$)**:
-  $$\mu^*(v) = \arg\max_{A_i \in V_{\text{agent}}} [ \text{Match}(W_{\text{cap}}(A_i), \text{Req}(v)) \cdot \text{Avail}(A_i, t) ]$$
+- `V_agent = {A_1, ..., A_n}`: 에이전트 집합.
+- `V_res = K_skills ∪ T_tools ∪ D_data`: 자원(스킬, 도구, 데이터베이스) 노드 집합.
+- `E_cap ⊆ V_agent × V_res`: 소유 및 접근 권한 엣지.
+- `W_cap(A_i, r) = <proficiency_ir, permission_ir, reliability_ir>`: 역량 가중치 튜플.
+- **에이전트-과제 최적 할당 함수 (`μ*: V_task → V_agent`)**:
+  ```
+  μ*(v) = argmax_{A_i ∈ V_agent} [ Match(W_cap(A_i), Req(v)) * Avail(A_i, t) ]
+  ```
 
-#### (2) 에이전트 팀 조직 그래프 ($G_{\text{team}}$)
-$$G_{\text{team}} = \langle V_{\text{agent}}, E_{\text{team}}, \text{Role} \rangle$$
+#### (2) 에이전트 팀 조직 그래프 (`G_team`)
+```
+G_team = <V_agent, E_team, Role>
+```
 
-- $E_{\text{team}}$: 위계 및 보고 관계($A_{\text{lead}} \xrightarrow{\text{supervise}} A_{\text{sub}}$), 피어 협업($A_i \xleftrightarrow{\text{peer}} A_j$), 독립 검토 게이트($A_{\text{worker}} \xrightarrow{\text{submit}} A_{\text{reviewer}}$).
+- `E_team`: 위계 및 보고 관계(`A_lead —(supervise)→ A_sub`), 피어 협업(`A_i ←(peer)→ A_j`), 독립 검토 게이트(`A_worker —(submit)→ A_reviewer`).
 
-#### (3) 동적 통신 그래프 ($G_{\text{comm}}^t$)
-$$G_{\text{comm}}^t = \langle V_{\text{agent}}, E_{\text{comm}}^t, M^t \rangle$$
+#### (3) 동적 통신 그래프 (`G_comm^t`)
+```
+G_comm^t = <V_agent, E_comm^t, M^t>
+```
 
-- **동적 통신 가지치기 (Communication Sparsification)**: $O(N^2)$ 메시지 범람을 차단하고 관련성 기반 활성 채널만 유지:
-  $$E_{\text{comm}}^t = \{ (i, j) \in V_{\text{agent}}^2 \mid \text{Score}(m_{i \to j}^t, \text{Context}_j^t) \ge \tau_{\text{comm}} \land \text{Perm}(i \to j) = 1 \}$$
-- $m_{i \to j}^t$: 구조화된 교환 메시지 $\langle \text{Sender}, \text{Receiver}, \text{Type}, \text{Payload}, \text{ArtifactID}, t \rangle$.
+- **동적 통신 가지치기 (Communication Sparsification)**: `O(N^2)` 메시지 범람을 차단하고 관련성 기반 활성 채널만 유지:
+  ```
+  E_comm^t = { (i, j) ∈ V_agent^2 | Score(m_{i->j}^t, Context_j^t) ≥ τ_comm  and  Perm(i->j) = 1 }
+  ```
+- `m_{i->j}^t`: 구조화된 교환 메시지 `<Sender, Receiver, Type, Payload, ArtifactID, t>`.
 
 ---
 
-### 4.3 Runtime State Management ($G_{\text{state}}^t, G_{\text{exec}}^t$)
+### 4.3 Runtime State Management (`G_state^t, G_exec^t`)
 분산 런타임 환경에서 글로벌 상태의 일관성, 인과적 결함 격리 및 부분 롤백을 제어한다:
 
-#### (1) 글로벌 상태 & 인과 실행 그래프 ($G_{\text{state}}^t, G_{\text{exec}}^t$)
-$$G_{\text{state}}^t = \langle V_{\text{event}}^t \cup V_{\text{art}}^t, E_{\text{causal}}^t, x_t \rangle$$
+#### (1) 글로벌 상태 & 인과 실행 그래프 (`G_state^t, G_exec^t`)
+```
+G_state^t = <V_event^t ∪ V_art^t, E_causal^t, x_t>
+```
 
-- $V_{\text{event}}^t$: 시간 $t$까지의 실행 이벤트 $e_k = \langle A_i, \text{action}, \text{args}, \text{result}, t \rangle$.
-- $V_{\text{art}}^t$: 산출물 버전 $a_k$ (코드 diff, 테스트 로그, 중간 상태 문서).
-- $E_{\text{causal}}^t$: 인과 의존성 엣지 ($e_1 \xrightarrow{\text{causes}} e_2$, $e \xrightarrow{\text{generates}} a$, $a \xrightarrow{\text{derives}} a'$).
+- `V_event^t`: 시간 `t`까지의 실행 이벤트 `e_k = <A_i, action, args, result, t>`.
+- `V_art^t`: 산출물 버전 `a_k` (코드 diff, 테스트 로그, 중간 상태 문서).
+- `E_causal^t`: 인과 의존성 엣지 (`e_1 —(causes)→ e_2`, `e —(generates)→ a`, `a —(derives)→ a'`).
 
 #### (2) 거버넌스 상태 업데이트 게이트 (Governed State Update Gate)
-임의의 에이전트 $A_i$가 제안한 상태 변이(State Mutation) $\Delta x$가 공유 시스템 상태 $x_t$에 영속적으로 반영되기 위해서는 4대 무결성 검증 게이트 $\Gamma_{\text{gate}}$를 반드시 통과해야 한다:
+임의의 에이전트 `A_i`가 제안한 상태 변이(State Mutation) `Δx`가 공유 시스템 상태 `x_t`에 영속적으로 반영되기 위해서는 4대 무결성 검증 게이트 `Γ_gate`를 반드시 통과해야 한다:
 
-$$x_{t+1} = \begin{cases} x_t \oplus \Delta x & \text{if } \Gamma_{\text{gate}}(\Delta x; x_t) = \text{True} \\ x_t & \text{otherwise (Reject / Conflict Flag)} \end{cases}$$
+```
+x_{t+1} = x_t ⊕ Δx    (if Γ_gate(Δx; x_t) == True)
+        = x_t          (otherwise: Reject / Conflict Flag)
 
-$$\Gamma_{\text{gate}}(\Delta x; x_t) = \text{SchemaCheck}(\Delta x) \land \text{PermCheck}(\Delta x) \land \text{InvariantCheck}(\Delta x, x_t) \land \text{NoConflict}(\Delta x)$$
+Γ_gate(Δx; x_t) = SchemaCheck(Δx) ∧ PermCheck(Δx) ∧ InvariantCheck(Δx, x_t) ∧ NoConflict(Δx)
+```
 
-- **`SchemaCheck` (스키마 무결성 검증)**: $\Delta x$의 데이터 구조 및 타입 정의가 사전에 정의된 상태 스키마 규격을 충족하는지 검증.
-- **`PermCheck` (접근 권한 검증)**: 수정을 시도한 에이전트 $A_i$가 대상 상태 객체에 대한 쓰기 권한($\text{permission}_{ir} = 1$)을 보유하고 있는지 확인.
-- **`InvariantCheck` (불변성 제약 검증)**: $\Delta x$ 적용 후의 상태가 시스템 전역 불변성 규칙(예: 예산 한도, 데드락 방지, 비모순성 제약)을 만족하는지 검사.
+- **`SchemaCheck` (스키마 무결성 검증)**: `Δx`의 데이터 구조 및 타입 정의가 사전에 정의된 상태 스키마 규격을 충족하는지 검증.
+- **`PermCheck` (접근 권한 검증)**: 수정을 시도한 에이전트 `A_i`가 대상 상태 객체에 대한 쓰기 권한(`permission_ir = 1`)을 보유하고 있는지 확인.
+- **`InvariantCheck` (불변성 제약 검증)**: `Δx` 적용 후의 상태가 시스템 전역 불변성 규칙(예: 예산 한도, 데드락 방지, 비모순성 제약)을 만족하는지 검사.
 - **`NoConflict` (동시성 충돌 검증)**: 병렬 실행 중인 타 에이전트의 상태 갱신과의 경합(Race Condition / Write-Write Conflict) 발생 여부 확인.
 
 #### (3) 인과 결함 국소화 (Causal Fault Localization)
-실행 장애 노드 $v_{\text{fail}}$ 발생 시 인과 조상 집합 $\text{Anc}(v_{\text{fail}})$로부터 근본 원인(Root Cause) 노드 $v_{\text{root}}$를 특정:
+실행 장애 노드 `v_fail` 발생 시 인과 조상 집합 `Anc(v_fail)`로부터 근본 원인(Root Cause) 노드 `v_root`를 특정:
 
-$$v_{\text{root}} = \arg\min_{u \in \text{Anc}(v_{\text{fail}})} \{ \text{Depth}(u) \mid \neg \text{Valid}(u) \land ( \forall w \in \text{Parents}(u), \text{Valid}(w) ) \}$$
+```
+v_root = argmin_{u ∈ Anc(v_fail)} { Depth(u) | ¬Valid(u) ∧ (∀w ∈ Parents(u), Valid(w)) }
+```
 
 #### (4) 장애 복구 및 회복 경계 (Failure Recovery & Scoped Rollback)
-복구 경계 $B_{\text{rec}}$를 산출하여 무효화된 서브그래프 $G_{\text{invalid}}$만 격리하고 부분 재실행:
+복구 경계 `B_rec`를 산출하여 무효화된 서브그래프 `G_invalid`만 격리하고 부분 재실행:
 
-$$B_{\text{rec}} = \{ u \in V \mid \text{Valid}(u) = \text{True} \land \exists w \in \text{Children}(u), \neg \text{Valid}(w) \}$$
-
-$$G_{\text{exec}}^{\text{recovered}} = ( G_{\text{exec}} \setminus G_{\text{invalid}}(v_{\text{root}}) ) \cup \text{RePlan}( v_{\text{root}}, \text{Context}(B_{\text{rec}}) )$$
+```
+B_rec = { u ∈ V | Valid(u) == True ∧ ∃w ∈ Children(u), ¬Valid(w) }
+G_exec^recovered = ( G_exec \ G_invalid(v_root) ) ∪ RePlan( v_root, Context(B_rec) )
+```
 
 ---
 
 ### 4.4 System Evolution (시스템 진화: 크로스 런 메타 최적화)
-시스템 수준의 영속적 구조 그래프 튜플 $\Theta_{\text{sys}} = \langle G_{\text{task}}^0, G_{\text{cap}}^0, G_{\text{team}}^0, G_{\text{comm}}^0 \rangle$에 대해, $k$번째 실행 세션 궤적 $T_k = \langle G_{\text{task}}^{(k)}, G_{\text{coord}}^{(k)}, G_{\text{state}}^{(k)}, Y_k \rangle$을 기반으로 크로스 런 갱신을 수행:
+시스템 수준의 영속적 구조 그래프 튜플 `Θ_sys = <G_task^0, G_cap^0, G_team^0, G_comm^0>`에 대해, `k`번째 실행 세션 궤적 `T_k = <G_task^(k), G_coord^(k), G_state^(k), Y_k>`을 기반으로 크로스 런 갱신을 수행:
 
-$$\Theta_{\text{sys}}^{(k+1)} = \Theta_{\text{sys}}^{(k)} \oplus U_{\text{sys}}( \Theta_{\text{sys}}^{(k)}, T_k )$$
+```
+Θ_sys^(k+1) = Θ_sys^(k) ⊕ U_sys( Θ_sys^(k), T_k )
+```
 
 1. **과제 워크플로 진화**:
-   $$G_{\text{task}}^0 \leftarrow \text{TemplateInduction}( G_{\text{task}}^0, \{ G_{\text{task}}^{(k)} \mid Y_k = \text{Success} \} )$$
+   ```
+   G_task^0 ← TemplateInduction( G_task^0, { G_task^(k) | Y_k = Success } )
+   ```
 2. **역량 프로필 갱신**:
-   $$W_{\text{cap}}(A_i, r) \leftarrow (1-\alpha)W_{\text{cap}}(A_i, r) + \alpha \cdot \text{Feedback}_k(A_i, r)$$
+   ```
+   W_cap(A_i, r) ← (1 - α) * W_cap(A_i, r) + α * Feedback_k(A_i, r)
+   ```
 3. **통신 위상 최적화**:
-   $$E_{\text{comm}}^0 \leftarrow E_{\text{comm}}^0 \setminus \{ (i, j) \mid \mathbb{E}_k[\text{Utility}(i \to j)] < \epsilon \}$$
+   ```
+   E_comm^0 ← E_comm^0 \ { (i, j) | E_k[ Utility(i->j) ] < ε }
+   ```
 
 ---
 

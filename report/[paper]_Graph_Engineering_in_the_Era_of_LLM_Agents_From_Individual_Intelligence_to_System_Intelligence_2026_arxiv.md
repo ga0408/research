@@ -6,7 +6,7 @@
 
 본 논문은 대규모 언어 모델(LLM) 기반 자율 에이전트 연구가 단일 에이전트의 능력 증강(Individual Intelligence)에서 다중 에이전트 협업 및 시스템 차원의 구조화(System Intelligence)로 진화하는 패러다임 전환을 선언하고, 이를 실현하기 위한 핵심 방법론으로 **그래프 엔지니어링(Graph Engineering)**을 체계화한 63페이지 분량의 종합 서베이 논문이다. 
 
-기존의 프롬프트 엔지니어링(Prompt Engineering), 컨텍스트 엔지니어링(Context Engineering), 하네스 엔지니어링(Harness Engineering), 루프 엔지니어링(Loop Engineering)은 단일 에이전트의 국소적 추론과 실행 역량을 극대화하는 데 기여했으나, 장기 실행(Long-Horizon), 이종 전문성(Heterogeneous Expertise), 병렬 의존성(Interdependent Workflows), 독립적 검증(Independent Verification), 지속적 상태 보존(Persistent State)이 요구되는 복잡한 실세계 과제에서는 본질적인 '개별 지능의 한계'에 직면한다. 논문은 이러한 한계를 극복하기 위해 과제(Task), 행위자(Agent), 런타임 상태(Runtime State) 간의 상호관계를 명시적 그래프 구조로 외재화(Externalize)하고 제어·최적화하는 **그래프 엔지니어링 3대 핵심 축(Task Organization, Agent Coordination, Runtime State Management)**과 **시스템 진화(System Evolution)** 메커니즘을 정식화한다. 나아가 구조적 연결성을 넘어 공유 의미론과 가치 정렬을 제공하는 차세대 패러다임으로 **온톨로지 엔지니어링(Ontology Engineering)**을 제시한다.
+기존의 프롬프트 엔지니어링(Prompt Engineering), 컨텍스트 엔지니어링(Context Engineering), 하네스 엔지니어링(Harness Engineering), 루프 엔지니어링(Loop Engineering)은 단일 에이전트의 국소적 추론과 실행 역량을 극대화하는 데 기여했으나, 장기 실행(Long-Horizon), 이종 전문성(Heterogeneous Expertise), 병렬 의존성(Interdependent Workflows), 독립적 검증(Independent Verification), 지속적 상태 보존(Persistent State)이 요구되는 복잡한 실세계 과제에서는 본질적인 '개별 지능의 한계'에 직면한다. 논문은 이러한 한계를 극복하기 위해 과제(Task), 행위자(Agent), 런타임 상태(Runtime State) 간의 상호관계를 명시적 그래프 구조로 외재화(Externalize)하고 제어·최적화하는 **그래프 엔지니어링 3대 핵심 축(Task Organization, Agent Coordination, Runtime State Management)**과 **시스템 진화(System Evolution)** 메커니즘을 정합한 수식 체계로 정식화한다. 나아가 구조적 연결성을 넘어 공유 의미론과 가치 정렬을 제공하는 차세대 패러다임으로 **온톨로지 엔지니어링(Ontology Engineering)**을 제시한다.
 
 ```
                     ┌────────────────────────────────────────────────────────┐
@@ -28,7 +28,7 @@
                  │ (Scaffolding & Structural Scaling)
 ┌────────────────┴──────────────────┐
 │       INDIVIDUAL INTELLIGENCE     │
-│   Ai = Loop(Fi, Hi; s_i^t)        │
+│   A_i = Loop(F_i, H_i; s_i^t)     │
 ├───────────────────────────────────┤
 │• Harness Engineering (Tools/Mem)  │
 │• Loop Engineering (StateFlow/Fdbk)│
@@ -64,7 +64,7 @@
 
 | 병목 요인 | 메커니즘 및 증상 | 시스템에 미치는 영향 |
 |---|---|---|
-| **1. 용량-워크로드 불일치 (Capacity vs. Workload Mismatch)** | 컨텍스트가 길어질수록 주의력 희석(Attention Dilution)과 'Lost-in-the-Middle' 현상 발생, 연산량 및 지연 시간의 2차 곡선형($O(N^2)$) 증가 | 단일 에이전트에 수십 개의 도구와 수만 줄의 코드베이스, 방대한 실행 로그를 동시 주입 시 추론 정밀도 급락 |
+| **1. 용량-워크로드 불일치 (Capacity vs. Workload Mismatch)** | 컨텍스트가 길어질수록 주의력 희석(Attention Dilution)과 'Lost-in-the-Middle' 현상 발생, 연산량 및 지연 시간의 2차 곡선형(O(N^2)) 증가 | 단일 에이전트에 수십 개의 도구와 수만 줄의 코드베이스, 방대한 실행 로그를 동시 주입 시 추론 정밀도 급락 |
 | **2. 컨텍스트 오염 및 오류 연쇄 (Context Pollution & Error Cascading)** | 단일 실행 루프 내에서 발생한 하나의 환각(Hallucination)이나 잘못된 도구 반환값이 컨텍스트 히스토리에 영구 보존 | 후속 추론 단계가 오염된 사전 지식에 조건화되어 복구 불가능한 연쇄 실패(Catastrophic Drift) 초래 |
 | **3. 전문화 부족과 인지 과부하 (Specialization vs. Cognitive Overload)** | 범용 프롬프트를 통해 단일 모델이 계획자, 도구 실행자, 도메인 전문가, 비평가(Critic) 역할을 동시 수행 | 역할 간 간섭(Role Interference)으로 인해 전반적 추론 성능 저하 및 얕은 의사결정 고착화 |
 | **4. 단일 장애점과 독립 검증 부재 (Single Point of Failure & Lack of Verification)** | 단일 에이전트 루프의 런타임 크래시, 무한 루프, 도구 타임아웃 발생 시 복구 경계 없이 전체 태스크 중단 | 자기 자신의 추론 결함을 스스로 비판하는 데 내재적 한계(Self-Preference Bias) 존재 |
@@ -91,21 +91,21 @@ Task Start ──► Subtask A (Agent 1) ──► Validation Gate ──(Pass)�
 | # | 핵심 요구조건 | 개념 정의 및 단일 에이전트의 실패 메커니즘 | 실세계 대표 사례 | 그래프 엔지니어링 대응 기제 |
 |---|---|---|---|---|
 | 1 | **장기 실행<br>(Long-Horizon Execution)** | 수십~수백 단계에 걸친 다단계 추론과 장시간 연속 실행 능력. 단계가 누적될수록 컨텍스트 길이 초과 및 주의력 희석(Attention Dilution)으로 후반부 의사결정 품질 급락 | 대규모 코드베이스 리팩토링, 전임상 신약 후보물질 탐색 | 상태 체크포인팅 및 서브태스크 분할 스케줄링 |
-| 2 | **이종 전문성<br>(Heterogeneous Expertise)** | 서로 다른 전문 지식, 도구(Tools), 시스템 권한(Permissions), 백본 모델을 가진 전문 에이전트 간의 역할 분담. 단일 모델에 전 역할을 프롬프트로 몰아넣을 경우 역할 간섭(Role Interference) 및 인지 과부하 초래 | 기획자, 보안 감사관, 백엔드 엔지니어, QA 테스터 협업 | $G_{\text{cap}}$ (역량 그래프), $G_{\text{team}}$ (팀 토폴로지) |
-| 3 | **병렬 의존성<br>(Parallel & Interdependent Dependencies)** | 동시 실행 가능한 독립 작업과 결과 취합이 필수적인 선후행 의존 작업의 복합 구조. 단일 에이전트 루프는 본질적으로 작업을 직렬화(Serialization)하여 전체 지연 시간(Makespan) 극대화 | 로그 분석·재현 환경 구성·코드 감사의 동시 병렬 진행 후 패치 작성으로 취합 | $G_{\text{task}}$ (DAG 과제 분해 및 위상 정렬 스케줄링) |
-| 4 | **독립적 검증<br>(Independent Verification)** | 산출물 생성자(Creator)와 검증자(Auditor)의 인지 컨텍스트 및 권한 분리. 단일 에이전트가 생성과 검증을 동시 수행 시 자기 확증 편향(Confirmation Bias) 및 환각 맹점 발생 | Coder의 구현물을 독립된 Reviewer 에이전트와 격리 샌드박스 테스트 러너가 감사 | Review Gates, $E_{\text{verify}}$ (검증 게이트 엣지) |
-| 5 | **지속적 상태 보존<br>(Persistent State Management)** | 휘발성 컨텍스트를 넘어 시스템 전반의 이벤트, 산출물 버전, 데이터 계보(Provenance)를 영속 관리. 단일 에이전트 크래시 또는 오염 시 전체 작업을 처음부터 재시작해야 하는 결함 방지 | 수십 개 파일 수정 중 3개 파일 컴파일 실패 시 원인 커밋만 식별하여 직전 유효 상태로 롤백 | $G_{\text{state}}$ (인과 계보 DAG), $B_{\text{rec}}$ (회복 경계 롤백) |
+| 2 | **이종 전문성<br>(Heterogeneous Expertise)** | 서로 다른 전문 지식, 도구(Tools), 시스템 권한(Permissions), 백본 모델을 가진 전문 에이전트 간의 역할 분담. 단일 모델에 전 역할을 프롬프트로 몰아넣을 경우 역할 간섭(Role Interference) 및 인지 과부하 초래 | 기획자, 보안 감사관, 백엔드 엔지니어, QA 테스터 협업 | G_cap (역량 그래프), G_team (팀 토폴로지) |
+| 3 | **병렬 의존성<br>(Parallel & Interdependent Dependencies)** | 동시 실행 가능한 독립 작업과 결과 취합이 필수적인 선후행 의존 작업의 복합 구조. 단일 에이전트 루프는 본질적으로 작업을 직렬화(Serialization)하여 전체 지연 시간(Makespan) 극대화 | 로그 분석·재현 환경 구성·코드 감사의 동시 병렬 진행 후 패치 작성으로 취합 | G_task (DAG 과제 분해 및 위상 정렬 스케줄링) |
+| 4 | **독립적 검증<br>(Independent Verification)** | 산출물 생성자(Creator)와 검증자(Auditor)의 인지 컨텍스트 및 권한 분리. 단일 에이전트가 생성과 검증을 동시 수행 시 자기 확증 편향(Confirmation Bias) 및 환각 맹점 발생 | Coder의 구현물을 독립된 Reviewer 에이전트와 격리 샌드박스 테스트 러너가 감사 | Review Gates, E_verify (검증 게이트 엣지) |
+| 5 | **지속적 상태 보존<br>(Persistent State Management)** | 휘발성 컨텍스트를 넘어 시스템 전반의 이벤트, 산출물 버전, 데이터 계보(Provenance)를 영속 관리. 단일 에이전트 크래시 또는 오염 시 전체 작업을 처음부터 재시작해야 하는 결함 방지 | 수십 개 파일 수정 중 3개 파일 컴파일 실패 시 원인 커밋만 식별하여 직전 유효 상태로 롤백 | G_state (인과 계보 DAG), B_rec (회복 경계 롤백) |
 
 ---
 
 ## Contributions
 
 1. **지능 진화 4단계 계층화 (Four-Level Intelligence Hierarchy)**:
-   - 인공지능 엔지니어링 패러다임을 **Model Intelligence $\rightarrow$ Individual Intelligence $\rightarrow$ System Intelligence $\rightarrow$ Next-Gen Ontology Intelligence**로 명확히 정립하고, 이를 설명하는 직관적 **시험 비유(Exam Analogy)**를 구축.
+   - 인공지능 엔지니어링 패러다임을 **Model Intelligence → Individual Intelligence → System Intelligence → Next-Gen Ontology Intelligence**로 명확히 정립하고, 이를 설명하는 직관적 **시험 비유(Exam Analogy)**를 구축.
 2. **시스템 지능(System Intelligence) 및 에이전트 시스템의 수학적 형식화**:
-   - 개별 에이전트 $A_i = \text{Loop}(F_i, H_i; s_i^t)$와 에이전트 시스템 $S_t = \langle A_t, R_t, E_t, \Pi_t, x_t \rangle$을 정의하여, 개별 구성요소의 단순 합산과 시스템 차원의 구조적 조율 간의 본질적 차이를 이론적으로 규명.
+   - 개별 에이전트 `A_i = Loop(F_i, H_i; s_i^t)`와 에이전트 시스템 `S_t = <A_t, R_t, E_t, Π_t, x_t>`를 정의하여, 개별 구성요소의 단순 합산과 시스템 차원의 구조적 조율 간의 본질적 차이를 이론적으로 규명.
 3. **그래프 엔지니어링 3대 핵심 기둥 및 시스템 진화의 수학적 정식화**:
-   - **Task Organization** ($G_{\text{task}} = \langle V_{\text{task}}, E_{\text{task}}, \Phi_{\text{task}}, \Sigma_{\text{task}} \rangle$), **Agent Coordination** ($G_{\text{cap}}, G_{\text{team}}, G_{\text{comm}}^t$), **Runtime State Management** ($G_{\text{state}}^t, G_{\text{exec}}^t$, $\Gamma_{\text{gate}}$, $v_{\text{root}}$, $B_{\text{rec}}$) 및 크로스 런 메타 최적화 연산자 $U_{\text{sys}}$를 엄밀한 수식 체계로 정립.
+   - **Task Organization** (`G_task = <V_task, E_task, Φ_task, Σ_task>`), **Agent Coordination** (`G_cap, G_team, G_comm^t`), **Runtime State Management** (`G_state^t, G_exec^t`, `Γ_gate`, `v_root`, `B_rec`) 및 크로스 런 메타 최적화 연산자 `U_sys`를 엄밀한 수식 체계로 정립.
 4. **차세대 온톨로지 엔지니어링(Ontology Engineering) 비전 제시**:
    - 그래프 구조의 위상적 연결성을 넘어, 도메인 불변 제약, TBox/ABox 형식 의미론, 가치 정렬 및 범조직적 상호운용성을 제공하는 온톨로지 기반 차세대 시스템 지능 청사진 제시.
 5. **20+ 대표 서베이 비교, 50+ 라이브러리 및 6대 산업 응용 분석**:
@@ -125,7 +125,7 @@ Task Start ──► Subtask A (Agent 1) ──► Validation Gate ──(Pass)�
 - **Model Intelligence (기초 지능)**: 수험생이 머릿속에 암기하고 있는 기본 지식과 지적 잠재력.
 - **Prompt & Context Engineering (조건화)**: 시험지 질문을 명확하게 다듬고(Prompt), 오픈북 시험처럼 관련 참고 자료와 요약본(Context/Cheat-sheet)을 책상에 제공하는 과정.
 - **Harness Engineering (도구 보강)**: 계산기, 사전, 그래프 용지 등 외부 보조 도구(Tools, Memory, Sandboxes)를 손에 쥐여주는 과정.
-- **Loop Engineering (반복 실행)**: 초안을 작성한 후 다시 읽어보고 오류를 수정하며 정답을 다듬는 자기 반성 루프(Draft $\rightarrow$ Verify $\rightarrow$ Refine).
+- **Loop Engineering (반복 실행)**: 초안을 작성한 후 다시 읽어보고 오류를 수정하며 정답을 다듬는 자기 반성 루프(Draft → Verify → Refine).
 - **Graph Engineering (팀 협업 및 시스템 조율)**: 단일 수험생의 한계를 넘어, 수학 전문가, 코딩 전문가, 검토자로 구성된 **수험 팀**을 조직하고, 문제 분해 DAG를 작성하여 역할을 배분하며, 중간 풀이 과정을 공유 칠판에 기록하고 오답 발생 시 롤백하는 구조적 협업 체계.
 - **Ontology Engineering (표준 의미론 및 가치 정렬)**: 서로 다른 팀과 연구실 간에 수학 기호, 과학적 정의, 윤리적 기준, 검증 규칙을 통일하여 범용적으로 소통하고 검증하는 표준 의미 체계.
 
@@ -140,23 +140,27 @@ Task Start ──► Subtask A (Agent 1) ──► Validation Gate ──(Pass)�
 #### 2.1 개별 에이전트 (Individual Agent)
 개별 에이전트는 환경을 인식하고, 결정을 내리며, 행동을 취하고, 피드백에 따라 적응하는 자율적 계산 단위이다:
 
-$$A_i = \text{Loop}(F_i, H_i; s_i^t)$$
+```
+A_i = Loop(F_i, H_i; s_i^t)
+```
 
-- $F_i$: 인지 핵심(Cognitive Core) 역할을 수행하는 Foundation Model.
-- $H_i$: 모델의 내재적 역량을 확장하는 Agent Harness (인식, 컨텍스트 조립, 메모리 접근, 도구 호출, 스킬 합성, 런타임 제어 인터페이스).
-- $s_i^t$: 시간 $t$에서의 에이전트 $i$의 국소 런타임 상태(Local Runtime State).
-- $\text{Loop}$: 지각(Perception) $\rightarrow$ 추론(Reasoning) $\rightarrow$ 행동(Action) $\rightarrow$ 피드백 처리(Feedback) $\rightarrow$ 상태 갱신(State Update)을 반복하는 실행 제어기.
+- `F_i`: 인지 핵심(Cognitive Core) 역할을 수행하는 Foundation Model.
+- `H_i`: 모델의 내재적 역량을 확장하는 Agent Harness (인식, 컨텍스트 조립, 메모리 접근, 도구 호출, 스킬 합성, 런타임 제어 인터페이스).
+- `s_i^t`: 시간 `t`에서의 에이전트 `i`의 국소 런타임 상태(Local Runtime State).
+- `Loop`: 지각(Perception) → 추론(Reasoning) → 행동(Action) → 피드백 처리(Feedback) → 상태 갱신(State Update)을 반복하는 실행 제어기.
 
 #### 2.2 에이전트 시스템 (Agent System)
 에이전트 시스템은 공유 자원, 외부 환경, 조율 메커니즘을 통해 상호작용하는 다중 에이전트의 결합체이다:
 
-$$S_t = \langle A_t, R_t, E_t, \Pi_t, x_t \rangle$$
+```
+S_t = <A_t, R_t, E_t, Π_t, x_t>
+```
 
-- $A_t = \{A_1, \dots, A_n\}$: 에이전트 팀(Agent Team). 각 에이전트는 독립된 $F_i, H_i, s_i^t$를 보유.
-- $R_t$: 공유 자원(Shared Resources: 도구 레지스트리, 공용 메모리/KB, 독립 검증기, 인간 개입 채널).
-- $E_t$: 외부 환경(External Environment: 관측값 제공 및 행동 효과 반영).
-- $\Pi_t$: 조율 메커니즘(Coordination Mechanisms: 과제 할당 규칙, 메시지 라우팅, 합의 알고리즘, 오류 격리 정책).
-- $x_t$: 글로벌 시스템 상태(Global System State: 전체 태스크 진행도, 산출물 버전, 자원 잠금, 실패 이력).
+- `A_t = {A_1, ..., A_n}`: 에이전트 팀(Agent Team). 각 에이전트는 독립된 `F_i, H_i, s_i^t`를 보유.
+- `R_t`: 공유 자원(Shared Resources: 도구 레지스트리, 공용 메모리/KB, 독립 검증기, 인간 개입 채널).
+- `E_t`: 외부 환경(External Environment: 관측값 제공 및 행동 효과 반영).
+- `Π_t`: 조율 메커니즘(Coordination Mechanisms: 과제 할당 규칙, 메시지 라우팅, 합의 알고리즘, 오류 격리 정책).
+- `x_t`: 글로벌 시스템 상태(Global System State: 전체 태스크 진행도, 산출물 버전, 자원 잠금, 실패 이력).
 
 ---
 
@@ -193,103 +197,141 @@ $$S_t = \langle A_t, R_t, E_t, \Pi_t, x_t \rangle$$
 
 ---
 
-#### 3.1 Task Organization ($G_{\text{task}}$: 과제 조직화 수식)
+#### 3.1 Task Organization (`G_task`: 과제 조직화 수식)
 
 ![Overview of Task Organization](../source/paper/figures/fig6_task_organization.png)
 
-Task Organization은 비구조적 고수준 목표를 방향성 비순환 그래프(DAG) 또는 하이퍼그래프 $G_{\text{task}}$로 구조화하여 스케줄링 및 실행 흐름을 제어한다:
+Task Organization은 비구조적 고수준 목표를 방향성 비순환 그래프(DAG) 또는 하이퍼그래프 `G_task`로 구조화하여 스케줄링 및 실행 흐름을 제어한다:
 
-$$G_{\text{task}} = \langle V_{\text{task}}, E_{\text{task}}, \Phi_{\text{task}}, \Sigma_{\text{task}} \rangle$$
+```
+G_task = <V_task, E_task, Φ_task, Σ_task>
+```
 
 1. **노드 및 엣지 정의**:
-   - $V_{\text{task}} = \{v_1, \dots, v_m\}$: 하위 과제(Subtask/Subgoal) 노드 집합. 각 노드 $v_k = \langle \text{spec}_k, \text{input}_k, \text{output}_k \rangle$.
-   - $E_{\text{task}} \subseteq V_{\text{task}} \times V_{\text{task}} \times T_{\text{dep}}$: 타입화된 의존성 엣지 집합:
-     - **데이터 흐름 의존성 (Dataflow)**: $u \xrightarrow{\text{data}} v \iff \text{output}(u) \subseteq \text{input}(v)$
-     - **선행 제약 (Precedence)**: $u \prec v \iff t_{\text{start}}(v) \ge t_{\text{finish}}(u)$
-     - **조건부 분기 (Conditional)**: $u \xrightarrow{\text{cond}(c)} v$
-     - **검증/승인 게이트 (Review Gate)**: $u \xrightarrow{\text{verify}} v$
-2. **런타임 노드 실행 상태 함수 ($\Sigma_{\text{task}}$)**:
-   $$\Sigma_{\text{task}}(v) \in \{\text{Pending}, \text{Ready}, \text{Running}, \text{Blocked}, \text{Committed}, \text{Failed}\}$$
+   - `V_task = {v_1, ..., v_m}`: 하위 과제(Subtask/Subgoal) 노드 집합. 각 노드 `v_k = <spec_k, input_k, output_k>`.
+   - `E_task ⊆ V_task × V_task × T_dep`: 타입화된 의존성 엣지 집합:
+     - **데이터 흐름 의존성 (Dataflow)**: `u —(data)→ v  <=>  output(u) ⊆ input(v)`
+     - **선행 제약 (Precedence)**: `u ≺ v  <=>  t_start(v) ≥ t_finish(u)`
+     - **조건부 분기 (Conditional)**: `u —(cond(c))→ v`
+     - **검증/승인 게이트 (Review Gate)**: `u —(verify)→ v`
+2. **런타임 노드 실행 상태 함수 (`Σ_task`)**:
+   ```
+   Σ_task(v) ∈ {Pending, Ready, Running, Blocked, Committed, Failed}
+   ```
    - **Ready 상태 전이 조건**:
-     $$\Sigma_{\text{task}}(v) \leftarrow \text{Ready} \iff \forall u \in \text{Parents}(v), \Sigma_{\text{task}}(u) = \text{Committed}$$
+     ```
+     Σ_task(v) ← Ready   <=>   ∀u ∈ Parents(v), Σ_task(u) = Committed
+     ```
 3. **워크플로 구조 최적화 (Workflow Optimization as Structural Search)**:
-   $$G_{\text{task}}^* = \arg\max_{G \in \Omega(\text{Goal})} \mathbb{E}_{\tau \sim G}[ R(\tau) - \lambda_1 \cdot \text{Cost}(\tau) - \lambda_2 \cdot \text{Latency}(\tau) ]$$
+   ```
+   G_task* = argmax_{G ∈ Ω(Goal)} E_{τ ~ G}[ R(τ) - λ_1 * Cost(τ) - λ_2 * Latency(τ) ]
+   ```
    - **임계 경로 메이크스팬 (Critical Path Makespan)**:
-     $$T_{\text{makespan}}(G_{\text{task}}) = \max_{p \in \text{Paths}(G_{\text{task}})} \sum_{v \in p} \text{Duration}(v)$$
+     ```
+     T_makespan(G_task) = max_{p ∈ Paths(G_task)} Σ_{v ∈ p} Duration(v)
+     ```
 
 ---
 
-#### 3.2 Agent Coordination ($G_{\text{cap}}, G_{\text{team}}, G_{\text{comm}}^t$: 에이전트 조율 수식)
+#### 3.2 Agent Coordination (`G_cap, G_team, G_comm^t`: 에이전트 조율 수식)
 
 ![Overview of Agent Coordination](../source/paper/figures/fig7_agent_coordination.png)
 
 Agent Coordination은 이종 전문성을 가진 다중 에이전트의 역량, 팀 구조, 통신 채널을 3대 상호보완 그래프로 모델링한다:
 
-1. **에이전트 역량 이분 그래프 (Agent Capability Bipartite Graph $G_{\text{cap}}$)**:
-   $$G_{\text{cap}} = \langle V_{\text{agent}} \cup V_{\text{res}}, E_{\text{cap}}, W_{\text{cap}} \rangle$$
-   - $V_{\text{agent}} = \{A_1, \dots, A_n\}$: 에이전트 집합.
-   - $V_{\text{res}} = K_{\text{skills}} \cup T_{\text{tools}} \cup D_{\text{data}}$: 자원(스킬, 도구, 데이터베이스) 노드 집합.
-   - $E_{\text{cap}} \subseteq V_{\text{agent}} \times V_{\text{res}}$: 소유 및 접근 권한 엣지.
-   - $W_{\text{cap}}(A_i, r) = \langle \text{proficiency}_{ir}, \text{permission}_{ir}, \text{reliability}_{ir} \rangle$: 역량 가중치 튜플.
-   - **에이전트-과제 최적 할당 함수 ($\mu^*: V_{\text{task}} \to V_{\text{agent}}$)**:
-     $$\mu^*(v) = \arg\max_{A_i \in V_{\text{agent}}} [ \text{Match}(W_{\text{cap}}(A_i), \text{Req}(v)) \cdot \text{Avail}(A_i, t) ]$$
+1. **에이전트 역량 이분 그래프 (Agent Capability Bipartite Graph `G_cap`)**:
+   ```
+   G_cap = <V_agent ∪ V_res, E_cap, W_cap>
+   ```
+   - `V_agent = {A_1, ..., A_n}`: 에이전트 집합.
+   - `V_res = K_skills ∪ T_tools ∪ D_data`: 자원(스킬, 도구, 데이터베이스) 노드 집합.
+   - `E_cap ⊆ V_agent × V_res`: 소유 및 접근 권한 엣지.
+   - `W_cap(A_i, r) = <proficiency_ir, permission_ir, reliability_ir>`: 역량 가중치 튜플.
+   - **에이전트-과제 최적 할당 함수 (`μ*: V_task → V_agent`)**:
+     ```
+     μ*(v) = argmax_{A_i ∈ V_agent} [ Match(W_cap(A_i), Req(v)) * Avail(A_i, t) ]
+     ```
 
-2. **에이전트 팀 조직 그래프 ($G_{\text{team}}$)**:
-   $$G_{\text{team}} = \langle V_{\text{agent}}, E_{\text{team}}, \text{Role} \rangle$$
-   - $E_{\text{team}}$: 위계 및 보고 관계($A_{\text{lead}} \xrightarrow{\text{supervise}} A_{\text{sub}}$), 피어 협업($A_i \xleftrightarrow{\text{peer}} A_j$), 독립 검토 게이트($A_{\text{worker}} \xrightarrow{\text{submit}} A_{\text{reviewer}}$).
+2. **에이전트 팀 조직 그래프 (`G_team`)**:
+   ```
+   G_team = <V_agent, E_team, Role>
+   ```
+   - `E_team`: 위계 및 보고 관계(`A_lead —(supervise)→ A_sub`), 피어 협업(`A_i ←(peer)→ A_j`), 독립 검토 게이트(`A_worker —(submit)→ A_reviewer`).
 
-3. **동적 통신 그래프 ($G_{\text{comm}}^t$)**:
-   $$G_{\text{comm}}^t = \langle V_{\text{agent}}, E_{\text{comm}}^t, M^t \rangle$$
-   - **동적 통신 가지치기 (Communication Sparsification)**: $O(N^2)$ 메시지 범람을 차단하고 관련성 기반 활성 채널만 유지:
-     $$E_{\text{comm}}^t = \{ (i, j) \in V_{\text{agent}}^2 \mid \text{Score}(m_{i \to j}^t, \text{Context}_j^t) \ge \tau_{\text{comm}} \land \text{Perm}(i \to j) = 1 \}$$
-   - $m_{i \to j}^t$: 구조화된 교환 메시지 $\langle \text{Sender}, \text{Receiver}, \text{Type}, \text{Payload}, \text{ArtifactID}, t \rangle$.
+3. **동적 통신 그래프 (`G_comm^t`)**:
+   ```
+   G_comm^t = <V_agent, E_comm^t, M^t>
+   ```
+   - **동적 통신 가지치기 (Communication Sparsification)**: `O(N^2)` 메시지 범람을 차단하고 관련성 기반 활성 채널만 유지:
+     ```
+     E_comm^t = { (i, j) ∈ V_agent^2 | Score(m_{i->j}^t, Context_j^t) ≥ τ_comm  and  Perm(i->j) = 1 }
+     ```
+   - `m_{i->j}^t`: 구조화된 교환 메시지 `<Sender, Receiver, Type, Payload, ArtifactID, t>`.
 
 ---
 
-#### 3.3 Runtime State Management ($G_{\text{state}}^t, G_{\text{exec}}^t$: 런타임 상태 관리 수식)
+#### 3.3 Runtime State Management (`G_state^t, G_exec^t`: 런타임 상태 관리 수식)
 
 ![Overview of Runtime State Management](../source/paper/figures/fig8_runtime_state_management.png)
 
 분산 런타임 환경에서 글로벌 상태의 일관성, 인과적 결함 격리 및 부분 롤백을 정형화한다:
 
-1. **글로벌 상태 & 인과 실행 그래프 ($G_{\text{state}}^t, G_{\text{exec}}^t$)**:
-   $$G_{\text{state}}^t = \langle V_{\text{event}}^t \cup V_{\text{art}}^t, E_{\text{causal}}^t, x_t \rangle$$
-   - $V_{\text{event}}^t$: 시간 $t$까지의 실행 이벤트 $e_k = \langle A_i, \text{action}, \text{args}, \text{result}, t \rangle$.
-   - $V_{\text{art}}^t$: 산출물 버전 $a_k$ (코드 diff, 테스트 로그, 중간 상태 문서).
-   - $E_{\text{causal}}^t$: 인과 의존성 엣지 ($e_1 \xrightarrow{\text{causes}} e_2$, $e \xrightarrow{\text{generates}} a$, $a \xrightarrow{\text{derives}} a'$).
+1. **글로벌 상태 & 인과 실행 그래프 (`G_state^t, G_exec^t`)**:
+   ```
+   G_state^t = <V_event^t ∪ V_art^t, E_causal^t, x_t>
+   ```
+   - `V_event^t`: 시간 `t`까지의 실행 이벤트 `e_k = <A_i, action, args, result, t>`.
+   - `V_art^t`: 산출물 버전 `a_k` (코드 diff, 테스트 로그, 중간 상태 문서).
+   - `E_causal^t`: 인과 의존성 엣지 (`e_1 —(causes)→ e_2`, `e —(generates)→ a`, `a —(derives)→ a'`).
 
 2. **거버넌스 상태 업데이트 게이트 (Governed State Update Gate)**:
-   임의의 에이전트 $A_i$가 제안한 상태 변이(State Mutation) $\Delta x$가 공유 시스템 상태 $x_t$에 영속적으로 반영되기 위해서는 4대 무결성 검증 게이트 $\Gamma_{\text{gate}}$를 반드시 통과해야 한다:
-   $$x_{t+1} = \begin{cases} x_t \oplus \Delta x & \text{if } \Gamma_{\text{gate}}(\Delta x; x_t) = \text{True} \\ x_t & \text{otherwise (Reject / Conflict Flag)} \end{cases}$$
-   $$\Gamma_{\text{gate}}(\Delta x; x_t) = \text{SchemaCheck}(\Delta x) \land \text{PermCheck}(\Delta x) \land \text{InvariantCheck}(\Delta x, x_t) \land \text{NoConflict}(\Delta x)$$
-   - **`SchemaCheck` (스키마 무결성 검증)**: $\Delta x$의 데이터 구조 및 타입 정의가 사전에 정의된 상태 스키마 규격을 충족하는지 검증.
-   - **`PermCheck` (접근 권한 검증)**: 수정을 시도한 에이전트 $A_i$가 대상 상태 객체에 대한 쓰기 권한($\text{permission}_{ir} = 1$)을 보유하고 있는지 확인.
-   - **`InvariantCheck` (불변성 제약 검증)**: $\Delta x$ 적용 후의 상태가 시스템 전역 불변성 규칙(예: 예산 한도, 데드락 방지, 비모순성 제약)을 만족하는지 검사.
+   임의의 에이전트 `A_i`가 제안한 상태 변이(State Mutation) `Δx`가 공유 시스템 상태 `x_t`에 영속적으로 반영되기 위해서는 4대 무결성 검증 게이트 `Γ_gate`를 반드시 통과해야 한다:
+   ```
+   x_{t+1} = x_t ⊕ Δx    (if Γ_gate(Δx; x_t) == True)
+           = x_t          (otherwise: Reject / Conflict Flag)
+
+   Γ_gate(Δx; x_t) = SchemaCheck(Δx) ∧ PermCheck(Δx) ∧ InvariantCheck(Δx, x_t) ∧ NoConflict(Δx)
+   ```
+   - **`SchemaCheck` (스키마 무결성 검증)**: `Δx`의 데이터 구조 및 타입 정의가 사전에 정의된 상태 스키마 규격을 충족하는지 검증.
+   - **`PermCheck` (접근 권한 검증)**: 수정을 시도한 에이전트 `A_i`가 대상 상태 객체에 대한 쓰기 권한(`permission_ir = 1`)을 보유하고 있는지 확인.
+   - **`InvariantCheck` (불변성 제약 검증)**: `Δx` 적용 후의 상태가 시스템 전역 불변성 규칙(예: 예산 한도, 데드락 방지, 비모순성 제약)을 만족하는지 검사.
    - **`NoConflict` (동시성 충돌 검증)**: 병렬 실행 중인 타 에이전트의 상태 갱신과의 경합(Race Condition / Write-Write Conflict) 발생 여부 확인.
 
 3. **인과 결함 국소화 (Causal Fault Localization)**:
-   실행 장애 노드 $v_{\text{fail}}$ 발생 시 인과 조상 집합 $\text{Anc}(v_{\text{fail}})$로부터 근본 원인(Root Cause) 노드 $v_{\text{root}}$를 특정:
-   $$v_{\text{root}} = \arg\min_{u \in \text{Anc}(v_{\text{fail}})} \{ \text{Depth}(u) \mid \neg \text{Valid}(u) \land ( \forall w \in \text{Parents}(u), \text{Valid}(w) ) \}$$
+   실행 장애 노드 `v_fail` 발생 시 인과 조상 집합 `Anc(v_fail)`로부터 근본 원인(Root Cause) 노드 `v_root`를 특정:
+   ```
+   v_root = argmin_{u ∈ Anc(v_fail)} { Depth(u) | ¬Valid(u) ∧ (∀w ∈ Parents(u), Valid(w)) }
+   ```
 
 4. **장애 복구 및 회복 경계 (Failure Recovery & Scoped Rollback)**:
-   복구 경계 $B_{\text{rec}}$를 산출하여 무효화된 서브그래프 $G_{\text{invalid}}$만 격리하고 부분 재실행:
-   $$B_{\text{rec}} = \{ u \in V \mid \text{Valid}(u) = \text{True} \land \exists w \in \text{Children}(u), \neg \text{Valid}(w) \}$$
-   $$G_{\text{exec}}^{\text{recovered}} = ( G_{\text{exec}} \setminus G_{\text{invalid}}(v_{\text{root}}) ) \cup \text{RePlan}( v_{\text{root}}, \text{Context}(B_{\text{rec}}) )$$
+   복구 경계 `B_rec`를 산출하여 무효화된 서브그래프 `G_invalid`만 격리하고 부분 재실행:
+   ```
+   B_rec = { u ∈ V | Valid(u) == True ∧ ∃w ∈ Children(u), ¬Valid(w) }
+   G_exec^recovered = ( G_exec \ G_invalid(v_root) ) ∪ RePlan( v_root, Context(B_rec) )
+   ```
 
 ---
 
 #### 3.4 System Evolution (시스템 진화 수식: 크로스 런 메타 최적화)
 
-시스템 수준의 영속적 구조 그래프 튜플 $\Theta_{\text{sys}} = \langle G_{\text{task}}^0, G_{\text{cap}}^0, G_{\text{team}}^0, G_{\text{comm}}^0 \rangle$에 대해, $k$번째 실행 세션 궤적 $T_k = \langle G_{\text{task}}^{(k)}, G_{\text{coord}}^{(k)}, G_{\text{state}}^{(k)}, Y_k \rangle$을 기반으로 크로스 런 갱신을 수행:
+시스템 수준의 영속적 구조 그래프 튜플 `Θ_sys = <G_task^0, G_cap^0, G_team^0, G_comm^0>`에 대해, `k`번째 실행 세션 궤적 `T_k = <G_task^(k), G_coord^(k), G_state^(k), Y_k>`을 기반으로 크로스 런 갱신을 수행:
 
-$$\Theta_{\text{sys}}^{(k+1)} = \Theta_{\text{sys}}^{(k)} \oplus U_{\text{sys}}( \Theta_{\text{sys}}^{(k)}, T_k )$$
+```
+Θ_sys^(k+1) = Θ_sys^(k) ⊕ U_sys( Θ_sys^(k), T_k )
+```
 
 1. **과제 워크플로 진화**:
-   $$G_{\text{task}}^0 \leftarrow \text{TemplateInduction}( G_{\text{task}}^0, \{ G_{\text{task}}^{(k)} \mid Y_k = \text{Success} \} )$$
+   ```
+   G_task^0 ← TemplateInduction( G_task^0, { G_task^(k) | Y_k = Success } )
+   ```
 2. **역량 프로필 갱신**:
-   $$W_{\text{cap}}(A_i, r) \leftarrow (1-\alpha)W_{\text{cap}}(A_i, r) + \alpha \cdot \text{Feedback}_k(A_i, r)$$
+   ```
+   W_cap(A_i, r) ← (1 - α) * W_cap(A_i, r) + α * Feedback_k(A_i, r)
+   ```
 3. **통신 위상 최적화**:
-   $$E_{\text{comm}}^0 \leftarrow E_{\text{comm}}^0 \setminus \{ (i, j) \mid \mathbb{E}_k[\text{Utility}(i \to j)] < \epsilon \}$$
+   ```
+   E_comm^0 ← E_comm^0 \ { (i, j) | E_k[ Utility(i->j) ] < ε }
+   ```
 
 ---
 
@@ -369,7 +411,7 @@ $$\Theta_{\text{sys}}^{(k+1)} = \Theta_{\text{sys}}^{(k)} \oplus U_{\text{sys}}(
 1. **소프트웨어 공학 및 IT 운영**:
    - 요구사항 분석, 아키텍처 설계, 코드 작성, 단위 테스트, 코드 리뷰를 전문화된 에이전트 팀에 분배하고 Git 작업 트리와 연계(MetaGPT, OpenHands, Codex, Project ALICE).
 2. **과학적 발견 및 실험실 자동화**:
-   - 가설 생성 $\rightarrow$ 문헌 검토 $\rightarrow$ 실험 설계 $\rightarrow$ 로봇 실험실 물리 실행 $\rightarrow$ 데이터 검증의 전주기를 다중 에이전트 루프로 연결(SciAgents, The AI Scientist, The Virtual Lab, Co-Scientist).
+   - 가설 생성 → 문헌 검토 → 실험 설계 → 로봇 실험실 물리 실행 → 데이터 검증의 전주기를 다중 에이전트 루프로 연결(SciAgents, The AI Scientist, The Virtual Lab, Co-Scientist).
 3. **헬스케어 및 임상 의사결정**:
    - 다학제 진료팀(내과, 영상의학과, 병리과 등)을 에이전트 팀으로 모사하여 진단 오류를 줄이고 근거 추적성을 확보.
 4. **개인 및 기업 디지털 자동화**:
@@ -383,9 +425,9 @@ $$\Theta_{\text{sys}}^{(k+1)} = \Theta_{\text{sys}}^{(k)} \oplus U_{\text{sys}}(
 
 ### Strengths & Significance
 1. **패러다임의 명확한 구조화 및 이론적 정립**:
-   - 단편적으로 분산되어 있던 프롬프트, RAG, 하네스, 멀티에이전트 연구들을 **Model $\rightarrow$ Individual $\rightarrow$ System $\rightarrow$ Ontology Intelligence**라는 거대한 지능 진화의 틀 안에서 일관되게 정렬함.
+   - 단편적으로 분산되어 있던 프롬프트, RAG, 하네스, 멀티에이전트 연구들을 **Model → Individual → System → Ontology Intelligence**라는 거대한 지능 진화의 틀 안에서 일관되게 정렬함.
 2. **인과적 추적성 및 회복 탄력성(Resilience) 중심의 설계**:
-   - 기존 멀티에이전트 연구가 단순 대화(Chat)에 머물렀던 것과 달리, 상태 그래프($G_{\text{state}}$), 인과적 장애 진단, 서브그래프 롤백 등 소프트웨어 공학적 신뢰성 요건을 1등 시민(First-class citizen)으로 격상시킴.
+   - 기존 멀티에이전트 연구가 단순 대화(Chat)에 머물렀던 것과 달리, 상태 그래프(`G_state`), 인과적 장애 진단, 서브그래프 롤백 등 소프트웨어 공학적 신뢰성 요건을 1등 시민(First-class citizen)으로 격상시킴.
 3. **체계적 비교 분석 및 방대한 문헌 포괄**:
    - 498편의 최신 문헌과 20여 편의 선행 서베이를 비교 분석하여, 그래프가 단순 데이터 구조가 아닌 '시스템 조직의 핵심 기저(Organizational Substrate)'임을 명확히 논증함.
 
@@ -393,7 +435,7 @@ $$\Theta_{\text{sys}}^{(k+1)} = \Theta_{\text{sys}}^{(k)} \oplus U_{\text{sys}}(
 1. **사전 정의된 정적 토폴로지 의존성**:
    - 현재 대다수의 실용적 에이전트 시스템(LangGraph, MetaGPT 등)은 인간 개발자가 설계한 정적 DAG 또는 상태 머신에 크게 의존하며, 진정한 의미의 자율적 토폴로지 진화(System Evolution)는 초기 연구 단계에 머물러 있음.
 2. **그래프 간 결합 진화의 복잡성 (Coupled Cross-Graph Evolution)**:
-   - 과제 그래프($G_{\text{task}}$)의 변경이 에이전트 팀($G_{\text{team}}$) 및 통신($G_{\text{comm}}$) 요구사항을 변경시키고, 이로 인해 상태 관리의 불변성이 깨지는 상호 결합 문제에 대한 수학적 수렴성 보장이 부족함.
+   - 과제 그래프(`G_task`)의 변경이 에이전트 팀(`G_team`) 및 통신(`G_comm`) 요구사항을 변경시키고, 이로 인해 상태 관리의 불변성이 깨지는 상호 결합 문제에 대한 수학적 수렴성 보장이 부족함.
 3. **높은 시스템 조율 오버헤드**:
    - 복잡한 그래프 검증 게이트, 분산 체크포인팅, 다중 에이전트 라우팅으로 인해 단순 단일 에이전트 대비 인프라 복잡도와 지연 시간(Latency)이 증가할 수 있음.
 
