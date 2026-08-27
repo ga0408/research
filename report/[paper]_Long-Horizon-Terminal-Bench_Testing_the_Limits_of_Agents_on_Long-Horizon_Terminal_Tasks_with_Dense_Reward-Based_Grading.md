@@ -146,7 +146,7 @@ R = Σ(wₖ · rₖ) / Σ wₖ
 - 최강 GPT-5.5도 15.2%에 불과 → 매우 큰 개선 여분(headroom)
 - R ≥ 1.0에서는 대다수(15개 중 10개)가 0% pass → binary 평가 시 구분 불가
 
-**실행 규모 (평균):** 9.66M tokens, 228 episodes, 85.1 min, $10.21/task → 기존 terminal/code 벤치마크 대비 압도적 규모
+**실행 규모 (평균):** 9.66M tokens, 228 episodes, 85.1 min, \$10.21/task → 기존 terminal/code 벤치마크 대비 압도적 규모
 
 상세 결과 및 cost 표 → [excerpt](../source/paper/Long-Horizon-Terminal-Bench_Testing_the_Limits_of_Agents_on_Long-Horizon_Terminal_Tasks_with_Dense_Reward-Based_Grading.md)
 
@@ -170,9 +170,9 @@ R = Σ(wₖ · rₖ) / Σ wₖ
 - Early exit 평균 reward로 모델 간 차이 구분 가능: Kimi K2.7 Code(0.51), MiniMax M3(0.42) vs Kimi K2.6(0.11)
 
 **4. Cost–reward 분석 (§3.3)**
-- 평균 $10.2/task ($2.5~$28 범위)
-- Pareto frontier: GPT-5.5(최고 성능, $21/task) — MiniMax M3, DeepSeek V4 Pro(중간 성능, ~$6) — Hy3(최저 비용, $2.5)
-- GPT-5.4는 GPT-5.5보다 비싸면서($28 vs $21) 성능이 낮음 → 더 약한 모델이 더 많은 episode(302 vs 208)로 더 높은 비용 발생
+- 평균 \$10.2/task (\$2.5~\$28 범위)
+- Pareto frontier: GPT-5.5(최고 성능, \$21/task) — MiniMax M3, DeepSeek V4 Pro(중간 성능, ~\$6) — Hy3(최저 비용, \$2.5)
+- GPT-5.4는 GPT-5.5보다 비싸면서(\$28 vs \$21) 성능이 낮음 → 더 약한 모델이 더 많은 episode(302 vs 208)로 더 높은 비용 발생
 - 더 높은 추론 비용 지출만으로는 long-horizon 성능 보장 불가
 
 ## Analysis

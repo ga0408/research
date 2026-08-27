@@ -26,7 +26,7 @@
 *Figure 3: ANNOTATOR 모델 훈련 파이프라인. GPT-4o로부터 고품질 시드 주석을 생성한 뒤, 과소적합된 CORRECTOR 모델로 노이즈를 필터링하고, 최종 ANNOTATOR(LLaMA-3.1-8B-Instruct 기반)로 전체 사전학습 코퍼스를 확장 주석 처리.*
 
 ### 3-Stage Distillation Pipeline
-1. **Seed Annotation**: GPT-4o를 이용해 지식 집약적 문서 $M=1,000$개에 대해 `[dblookup('Entity', 'Relationship') -> Value]` 형식의 주석 생성.
+1. **Seed Annotation**: GPT-4o를 이용해 지식 집약적 문서 `M = 1,000`개에 대해 `[dblookup('Entity', 'Relationship') -> Value]` 형식의 주석 생성.
 2. **Filtering (CORRECTOR)**: LLaMA-3.1-8B-Instruct를 시드 데이터에 대해 의도적으로 과소적합(2 epoch)시켜 훈련. 포맷 오류나 비정상적으로 구체적인 룩업 호출에 높은 손실이 부여되며, 손실 상위 10%를 제거.
 3. **Annotation (ANNOTATOR)**: 정제된 데이터셋으로 LLaMA-3.1-8B-Instruct를 10 epoch 인스트럭션 튜닝하여 ANNOTATOR 구축. 전체 Wikipedia 코퍼스(~3B 토큰)에 적용하여 5,460만 개의 지식 트리플(950만 엔티티, 850만 관계)을 추출.
 
@@ -35,25 +35,37 @@
 ## 4. Formalization of Training Objectives
 
 ### Token Categorization
-자기회귀 언어 모델 $p_\theta(x) = \prod_{t=1}^T p_\theta(x_t \mid x_{<t})$에서 토큰 $x_t$를 다음과 같이 분류:
-- $\mathcal{T}_{\text{org}}$: 원본 코퍼스의 순수 텍스트 토큰
-- $\mathcal{T}_e, \mathcal{T}_r$: 룩업 호출 내 엔티티 및 관계 인자 토큰
-- $\mathcal{T}_v$: 데이터베이스에서 인출된 반환값(return value) 토큰
-- $\mathcal{T}_{\text{db}}$: 특수 토큰군 ($\langle|\text{db\_entity}|\rangle, \langle|\text{db\_relationship}|\rangle, \langle|\text{db\_return}|\rangle, \langle|\text{db\_end}|\rangle$)
+자기회귀 언어 모델 `p_θ(x) = ∏_{t=1}^T p_θ(x_t | x_<t)`에서 토큰 `x_t`를 다음과 같이 분류:
+- `T_org`: 원본 코퍼스의 순수 텍스트 토큰
+- `T_e, T_r`: 룩업 호출 내 엔티티 및 관계 인자 토큰
+- `T_v`: 데이터베이스에서 인출된 반환값(return value) 토큰
+- `T_db`: 특수 토큰군 (`<|db_entity|>`, `<|db_relationship|>`, `<|db_return|>`, `<|db_end|>`)
 
-### Masked Pre-training Loss (Equation 1 & 2)
-$$\mathcal{L}(\theta) = - \sum_{t=1}^T m_t \log p_\theta(x_t \mid x_{<t})$$
-$$m_t = \begin{cases} 0, & x_t \in \mathcal{T}_v \cup \{\langle|\text{db\_end}|\rangle\} \\ 1, & \text{otherwise} \end{cases}$$
+### Masked Pre-training Loss
+```
+L(θ) = - ∑_{t=1}^T m_t · log p_θ(x_t | x_<t)
 
-$$\mathcal{L}(\theta) = - \sum_{t \in \mathcal{T}_{\text{train}}} \log p_\theta(x_t \mid x_{<t}), \quad \text{where } \mathcal{T}_{\text{train}} = \{t \mid x_t \notin \mathcal{T}_v \cup \{\langle|\text{db\_end}|\rangle\}\}$$
+m_t = 0  (if x_t ∈ T_v ∪ {<|db_end|>})
+      1  (otherwise)
+```
+
+```
+L(θ) = - ∑_{t ∈ T_train} log p_θ(x_t | x_<t),    where T_train = {t | x_t ∉ T_v ∪ {<|db_end|>}}
+```
 
 ### Evaluation Perplexity Metrics
 - **Static (Oracle) PPL**: 모델이 완벽한 룩업 호출을 생성하고 정답을 인출했다고 가정한 하한선.
-  $$\text{PPL}_{\text{static}} = \exp\left( -\frac{1}{|\mathcal{T}_{\text{org}}|} \sum_{t \in \mathcal{T}_{\text{org}}} \log p_\theta(x_t \mid x_{<t}) \right)$$
+  ```
+  PPL_static = exp( - (1 / |T_org|) * ∑_{t ∈ T_org} log p_θ(x_t | x_<t) )
+  ```
 - **Dynamic PPL**: 추론 중 모델이 실시간으로 생성한 룩업 쿼리와 실제 검색 결과를 반영한 Perplexity.
-  $$\text{PPL}_{\text{dynamic}} = \exp\left( -\frac{1}{|\mathcal{T}_{\text{org}}|} \sum_{t \in \mathcal{T}_{\text{org}}} \log p_\theta(x_t \mid x_{<t}) \right)$$
-- **Normalized PPL**: 룩업 쿼리 생성에 소모된 우도까지 포함하여 평가하되, 원본 텍스트 길이 $|\mathcal{T}_{\text{org}}|$로 정규화.
-  $$\text{PPL}_{\text{norm}} = \exp\left( -\frac{1}{|\mathcal{T}_{\text{org}}|} \sum_{t \in \mathcal{T}_{\text{train}}} \log p_\theta(x_t \mid x_{<t}) \right)$$
+  ```
+  PPL_dynamic = exp( - (1 / |T_org|) * ∑_{t ∈ T_org} log p_θ(x_t | x_<t) )
+  ```
+- **Normalized PPL**: 룩업 쿼리 생성에 소모된 우도까지 포함하여 평가하되, 원본 텍스트 길이 `|T_org|`로 정규화.
+  ```
+  PPL_norm = exp( - (1 / |T_org|) * ∑_{t ∈ T_train} log p_θ(x_t | x_<t) )
+  ```
 
 ---
 

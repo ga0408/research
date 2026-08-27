@@ -58,7 +58,7 @@ R = Σₖ₌₁ᴷ (wₖ · rₖ) / Σₖ₌₁ᴷ wₖ
 
 ## Cost Analysis (§3.3, Table 1)
 
-| Model | Tokens/task (M) | Episodes/task | Time/task (min) | Cost/task ($) |
+| Model | Tokens/task (M) | Episodes/task | Time/task (min) | Cost/task (USD) |
 | --- | --- | --- | --- | --- |
 | GPT-5.5 | 4.16 | 208 | 72.9 | 21.46 |
 | MiniMax M3 | 20.20 | 314 | 90.0 | 6.13 |

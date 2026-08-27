@@ -22,65 +22,51 @@
 ### 2.1 순차적 의사결정 프로세스 수식화 (Sequential Formulation)
 
 - **기존 질의응답 (Zero-shot QA)**:
+  ```
+  a ~ P(A | Q)
+  ```
 
-$$
-a \sim P(A \mid Q)
-$$
-
-- **환경 피드백 변수 $F$ 도입**:
-
-$$
-f \sim P'(F \mid Q, a)
-$$
-
-  (여기서 $P'$는 코드 실행 인터프리터, 에이전트의 내부 월드 모델, 외부 환경 또는 보조 언어 모델에 의해 모델링됨)
+- **환경 피드백 변수 F 도입**:
+  ```
+  f ~ P'(F | Q, a)
+  ```
+  (여기서 `P'`는 코드 실행 인터프리터, 에이전트의 내부 월드 모델, 외부 환경 또는 보조 언어 모델에 의해 모델링됨)
 
 - **Chain-of-Experience (CoE) 순차 생성 과정**:
-
-$$
-a_t \sim P(a_t \mid Q, e_0, e_1, \dots, e_{t-1})
-$$
-
-  (여기서 $e_i = (a_i, f_i)$는 $i$번째 반복(iteration)에서의 시도 $a_i$와 피드백 $f_i$ 쌍으로 구성된 경험(experience) 튜플)
+  ```
+  a_t ~ P(a_t | Q, e_0, e_1, ..., e_{t-1})
+  ```
+  (여기서 `e_i = (a_i, f_i)`는 `i`번째 반복(iteration)에서의 시도 `a_i`와 피드백 `f_i` 쌍으로 구성된 경험(experience) 튜플)
 
 - **전체 피드백 이력 조건부 생성**:
-
-$$
-a_t \sim P(a_t \mid Q, (a_0, f_0), (a_1, f_1), \dots, (a_{t-1}, f_{t-1}))
-$$
+  ```
+  a_t ~ P(a_t | Q, (a_0, f_0), (a_1, f_1), ..., (a_{t-1}, f_{t-1}))
+  ```
 
 ### 2.2 4단계 피드백 스펙트럼 정의 (Feedback Spectrum)
 
 1. **무피드백 (No Feedback)**:
-
-$$
-f_i = \emptyset \implies a_t \sim P(a_t \mid Q, a_0, a_1, \dots, a_{t-1})
-$$
-
+   ```
+   f_i = ∅  ==>  a_t ~ P(a_t | Q, a_0, a_1, ..., a_{t-1})
+   ```
    외부 신호 없이 모델 자체의 과거 시도 궤적에 대한 내적 반성(self-reflection)에만 의존.
 
 2. **실행기 피드백 (Execution Feedback)**:
-
-$$
-f_i = E(Q, a_i)
-$$
-
+   ```
+   f_i = E(Q, a_i)
+   ```
    인터프리터나 단위 테스트 환경에서 코드를 실행하여 얻는 런타임 오류 로그, 실행 트레이스, 공개 단위 테스트 통과율.
 
 3. **모델 비평 피드백 (Model Feedback)**:
-
-$$
-f_i = M_{fb}(Q, a_i)
-$$
-
-   보조 LLM 또는 자기 자신($M_{fb}$)이 생성하는 자연어 비평(critique), 점수, 또는 구조화된 평가.
+   ```
+   f_i = M_fb(Q, a_i)
+   ```
+   보조 LLM 또는 자기 자신(`M_fb`)이 생성하는 자연어 비평(critique), 점수, 또는 구조화된 평가.
 
 4. **정답 오라클 피드백 (Correctness Feedback)**:
-
-$$
-f_i = \mathbf{1}\{a_i \text{ is correct}\} \in \{0, 1\}
-$$
-
+   ```
+   f_i = 1{a_i is correct} ∈ {0, 1}
+   ```
    도메인 검증기(verifier) 또는 오라클이 제공하는 이진 정답 여부 신호 (이론적 상한선 reference 역할).
 
 ---
@@ -174,16 +160,15 @@ $$
 ### 6.3 기본 역량 대비 개선 잠재력 상관계수
 
 - **개선 능력 정의식**:
-
-$$
-\Delta_M = \frac{S_{\max} - S_{\text{base}}}{1 - S_{\text{base}}}
-$$
+  ```
+  Δ_M = (S_max - S_base) / (1 - S_base)
+  ```
 
 - **Pearson 상관계수 (r)**:
-  - LiveBench (Code): $r = 0.97$
-  - LiveCodeBench (V6): $r = 0.83$
-  - EvaLearn: $r = 0.37$
-  - AIME 2025: $r = 0.33$
-  - GPQA Diamond: $r = 0.28$
-  - OmniMath: $r = 0.24$
-  - **전체 벤치마크 평균**: **$r = +0.50$** (Base 모델의 추론 능력이 뛰어날수록 피드백을 소화하여 개선하는 역량이 유의미하게 높음).
+  - LiveBench (Code): `r = 0.97`
+  - LiveCodeBench (V6): `r = 0.83`
+  - EvaLearn: `r = 0.37`
+  - AIME 2025: `r = 0.33`
+  - GPQA Diamond: `r = 0.28`
+  - OmniMath: `r = 0.24`
+  - **전체 벤치마크 평균**: **`r = +0.50`** (Base 모델의 추론 능력이 뛰어날수록 피드백을 소화하여 개선하는 역량이 유의미하게 높음).
