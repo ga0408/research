@@ -6,14 +6,20 @@
 
 본 연구(Cornell University, Kilian Q. Weinberger 교수 연구팀)는 기존 대형 언어 모델(LLM)이 사전학습 과정에서 언어적 패턴(문법, 유창성, 추론)과 사실적 지식(factual knowledge)을 수십억 개의 불투명한 파라미터에 뒤엉키게(entangled) 학습함으로써 발생하는 근본적인 문제점—지식 환각(hallucination), 업데이트의 난해함, 특정 사실 삭제(unlearning)의 위험성, 파라미터 용량 낭비—을 해결하기 위한 새로운 패러다임 **Limited Memory Language Models (LMLM)**을 제안한다.
 
-사후 추론 시점에 외부 문서를 덧붙이는 일반적인 RAG(Retrieval-Augmented Generation)와 달리, LMLM은 **사전학습(Pre-training) 단계부터 원자적 사실을 외부 데이터베이스로 오프로딩(offloading)하고, 사실 반환값 토큰을 손실 함수에서 마스킹**하여 모델 가중치가 사실을 암기하지 않고 룩업 쿼리를 발행하는 방법만을 학습하도록 강제한다. 이를 통해 LMLM은 소형 모델(124M~382M)만으로도 파라미터 수가 20~60배 이상 큰 7B~8B LLM에 필적하거나 이를 능가하는 사실 정밀도(FactScore, PopQA)를 달성하며, 데이터베이스 조작만으로 유틸리티 저하 없는 완전한 즉각 망각(Instant Machine Unlearning)을 실현한다.
+### 핵심 메커니즘 요약
+- **동적 룩업 쿼리 생성 및 주입 증강 생성**: LLM이 주어진 입력에 대해 텍스트를 생성하다가 사실 정보가 필요한 위치에 도달하면, 사전학습을 통해 획득한 특수 토큰(`<|db_entity|>`, `<|db_relationship|>`, `<|db_return|>`)과 함께 `(Entity, Relation)` 형태의 룩업 쿼리를 동적으로 생성한다. 추론 엔진은 이를 인터셉트하여 외부 지식 DB(5,460만 개 트리플)에서 최적의 사실값(Return Value)을 인출하고, 이를 컨텍스트에 주입한 뒤 사실에 근거한 증강 생성(grounded generation)을 완수한다.
+- **사전학습 손실 마스킹 (Loss Masking)**: 사후 추론 시점에 외부 문서를 덧붙이는 일반 RAG(Retrieval-Augmented Generation)와 달리, LMLM은 **사전학습(Pre-training) 단계부터 사실 반환값 토큰을 손실 함수에서 0으로 마스킹**한다. 이를 통해 모델 파라미터가 사실 자체를 가중치에 암기하지 않고 오직 **"언제 어떤 룩업 쿼리를 생성하여 외부 지식을 호출할 것인가"**만을 학습하도록 강제한다.
+- **실증적 우수성**:
+  1. **초소형 모델의 스케일링 초월**: 소형 모델(124M~382M)만으로도 파라미터 수가 20~60배 이상 큰 7B~8B LLM에 필적하거나 이를 능가하는 사실 정밀도(FactScore, PopQA)를 달성.
+  2. **유틸리티 무손실 즉각 망각**: 파라미터 재학습이나 Retain Set 손상 없이 외부 데이터베이스의 특정 엔트리 삭제만으로 완벽한 머신 언러닝(Instant Machine Unlearning, $p \approx 1.0$, Model Utility 1.0) 실현.
+  3. **언어 모델링 성능 개선**: 실제 런타임 룩업 환경(Dynamic PPL)에서도 Standard 모델 대비 평균 1.98 포인트의 Perplexity 감소 달성.
 
 ### Outline
 1. **Problem & Motivation**: 파라미터 지식 암기의 비효율성과 RAG 패러다임의 한계
 2. **Contributions**: 지식-언어 분리 사전학습 정식화 및 3단계 증류 파이프라인
 3. **Architecture & Pipeline**: 데이터 준비, 마스킹 사전학습, 인터리빙 동적 추론 파이프라인
 4. **Methodology**: 
-   - 3단계 자동 지식 추출 및 주석 (Seed Annotation $	o$ Filtering $	o$ Distillation)
+   - 3단계 자동 지식 추출 및 주석 (Seed Annotation $\to$ Filtering $\to$ Distillation)
    - 마스킹된 사전학습 목적함수 (Masked Next-Token Prediction)
    - 동적 룩업 디코딩 루프 및 Logit Bias 주입 메커니즘
    - 외부 지식베이스 및 Top-K 임베딩 검색기
@@ -52,8 +58,8 @@ LMLM은 언어 모델의 파라미터는 순수한 언어적 유창성과 논리
 
 1. **새로운 모델 클래스 LMLM 제안**: 지식 저장을 모델 파라미터에서 외부 데이터베이스로 사전학습 단계부터 분리하는 Limited Memory Language Model 패러다임 정립.
 2. **지식 마스킹 사전학습 목적함수 설계**: 사전학습 텍스트에 룩업 호출을 삽입하고, 데이터베이스에서 반환된 사실값($\mathcal{T}_v$)과 종료 토큰에 대한 손실 계산을 제외($m_t=0$)함으로써 파라미터의 사실 암기를 억제하고 룩업 트리거 능력만을 학습시키는 공식화 정립.
-3. **확장 가능한 3단계 지식 추출 증류 파이프라인**: GPT-4o 시드 주석 $	o$ 과소적합 CORRECTOR 모델 기반 노이즈 필터링 $	o$ 경량 ANNOTATOR(LLaMA-3.1-8B) 증류를 통해 3B 토큰 규모의 Wikipedia 코퍼스에서 5,460만 개의 원자적 트리플을 자동 추출·구축.
-4. **유틸리티 무손실 머신 언러닝 입증**: 데이터베이스에서 대상 사실 엔트리를 단순 삭제하는 것만으로 파라미터 재학습이나 Retain Set 손실 없이 완벽한 망각(Forget Quality $p pprox 1.0$, Model Utility 1.0) 달성.
+3. **확장 가능한 3단계 지식 추출 증류 파이프라인**: GPT-4o 시드 주석 $\to$ 과소적합 CORRECTOR 모델 기반 노이즈 필터링 $\to$ 경량 ANNOTATOR(LLaMA-3.1-8B) 증류를 통해 3B 토큰 규모의 Wikipedia 코퍼스에서 5,460만 개의 원자적 트리플을 자동 추출·구축.
+4. **유틸리티 무손실 머신 언러닝 입증**: 데이터베이스에서 대상 사실 엔트리를 단순 삭제하는 것만으로 파라미터 재학습이나 Retain Set 손실 없이 완벽한 망각(Forget Quality $p \approx 1.0$, Model Utility 1.0) 달성.
 5. **초소형 모델의 파라미터 스케일링 초월 실증**: LLaMA2-176M 및 382M LMLM이 표준 사전학습 모델 대비 FactScore를 각각 +20.5%p, +17.9%p 향상시키고, 7B~8B 규모의 오픈 모델(LLaMA2-7B, LLaMA3.1-8B)과 대등한 사실 정밀도를 기록.
 
 ---
@@ -133,9 +139,9 @@ LMLM은 지식의 단위를 `(entity, relation) -> value` 형식의 원자적 �
 - `DB_RETRIEVE_TOKEN` (`<|db_return|>`): 검색된 사실 반환값의 주입 시작 지점
 - `DB_END_TOKEN` (`<|db_end|>`): 룩업 블록의 종료
 
-전체 토큰 시퀀스 $x = (x_1, \dots, x_T)$에서 반환값 토큰 집합 $\mathcal{T}_v$와 종료 토큰 $\langle|	ext{db\_end}|angle$에 대한 가중치 $m_t$를 0으로 설정하여 그래디언트를 차단한다:
+전체 토큰 시퀀스 $x = (x_1, \dots, x_T)$에서 반환값 토큰 집합 $\mathcal{T}_v$와 종료 토큰 $\langle|\text{db\_end}|\rangle$에 대한 가중치 $m_t$를 0으로 설정하여 그래디언트를 차단한다:
 
-$$\mathcal{L}(	heta) = - \sum_{t=1}^T m_t \log p_	heta(x_t \mid x_{<t}), \quad m_t = egin{cases} 0, & x_t \in \mathcal{T}_v \cup \{\langle|	ext{db\_end}|angle\} \ 1, & 	ext{otherwise} \end{cases}$$
+$$\mathcal{L}(\theta) = - \sum_{t=1}^T m_t \log p_\theta(x_t \mid x_{<t}), \quad m_t = \begin{cases} 0, & x_t \in \mathcal{T}_v \cup \{\langle|\text{db\_end}|\rangle\} \\ 1, & \text{otherwise} \end{cases}$$
 
 이러한 손실 마스킹은 모델이 사실 반환값 토큰을 가중치에 암기하는 것을 원천적으로 차단하며, 오직 **(1) 어떤 문맥에서 사실 조회가 필요한지, (2) 어떤 엔티티와 관계를 쿼리로 생성해야 하는지, (3) 조회된 사실값을 문장 흐름에 어떻게 자연스럽게 연결할 것인지**만을 학습하게 만든다.
 

@@ -35,26 +35,25 @@
 ## 4. Formalization of Training Objectives
 
 ### Token Categorization
-자기회귀 언어 모델 $p_	heta(x) = \prod_{t=1}^T p_	heta(x_t \mid x_{<t})$에서 토큰 $x_t$를 다음과 같이 분류:
-- $\mathcal{T}_{	ext{org}}$: 원본 코퍼스의 순수 텍스트 토큰
+자기회귀 언어 모델 $p_\theta(x) = \prod_{t=1}^T p_\theta(x_t \mid x_{<t})$에서 토큰 $x_t$를 다음과 같이 분류:
+- $\mathcal{T}_{\text{org}}$: 원본 코퍼스의 순수 텍스트 토큰
 - $\mathcal{T}_e, \mathcal{T}_r$: 룩업 호출 내 엔티티 및 관계 인자 토큰
 - $\mathcal{T}_v$: 데이터베이스에서 인출된 반환값(return value) 토큰
-- $\mathcal{T}_{	ext{db}}$: 특수 토큰군 ($\langle|	ext{db\_entity}|angle, \langle|	ext{db\_relationship}|angle, \langle|	ext{db\_return}|angle, \langle|	ext{db\_end}|angle$)
+- $\mathcal{T}_{\text{db}}$: 특수 토큰군 ($\langle|\text{db\_entity}|\rangle, \langle|\text{db\_relationship}|\rangle, \langle|\text{db\_return}|\rangle, \langle|\text{db\_end}|\rangle$)
 
 ### Masked Pre-training Loss (Equation 1 & 2)
-$$\mathcal{L}(	heta) = - \sum_{t=1}^T m_t \log p_	heta(x_t \mid x_{<t})$$
-$$m_t = egin{cases} 0, & x_t \in \mathcal{T}_v \cup \{\langle|	ext{db\_end}|angle\} \ 1, & 	ext{otherwise} \end{cases}$$
+$$\mathcal{L}(\theta) = - \sum_{t=1}^T m_t \log p_\theta(x_t \mid x_{<t})$$
+$$m_t = \begin{cases} 0, & x_t \in \mathcal{T}_v \cup \{\langle|\text{db\_end}|\rangle\} \\ 1, & \text{otherwise} \end{cases}$$
 
-$$\mathcal{L}(	heta) = - \sum_{t \in \mathcal{T}_{	ext{train}}} \log p_	heta(x_t \mid x_{<t}), \quad 	ext{where } \mathcal{T}_{	ext{train}} = \{t \mid x_t 
-otin \mathcal{T}_v \cup \{\langle|	ext{db\_end}|angle\}\}$$
+$$\mathcal{L}(\theta) = - \sum_{t \in \mathcal{T}_{\text{train}}} \log p_\theta(x_t \mid x_{<t}), \quad \text{where } \mathcal{T}_{\text{train}} = \{t \mid x_t \notin \mathcal{T}_v \cup \{\langle|\text{db\_end}|\rangle\}\}$$
 
 ### Evaluation Perplexity Metrics
 - **Static (Oracle) PPL**: 모델이 완벽한 룩업 호출을 생성하고 정답을 인출했다고 가정한 하한선.
-  $$	ext{PPL}_{	ext{static}} = \exp\left( -rac{1}{|\mathcal{T}_{	ext{org}}|} \sum_{t \in \mathcal{T}_{	ext{org}}} \log p_	heta(x_t \mid x_{<t}) ight)$$
+  $$\text{PPL}_{\text{static}} = \exp\left( -\frac{1}{|\mathcal{T}_{\text{org}}|} \sum_{t \in \mathcal{T}_{\text{org}}} \log p_\theta(x_t \mid x_{<t}) \right)$$
 - **Dynamic PPL**: 추론 중 모델이 실시간으로 생성한 룩업 쿼리와 실제 검색 결과를 반영한 Perplexity.
-  $$	ext{PPL}_{	ext{dynamic}} = \exp\left( -rac{1}{|\mathcal{T}_{	ext{org}}|} \sum_{t \in \mathcal{T}_{	ext{org}}} \log p_	heta(x_t \mid x_{<t}) ight)$$
-- **Normalized PPL**: 룩업 쿼리 생성에 소모된 우도까지 포함하여 평가하되, 원본 텍스트 길이 $|\mathcal{T}_{	ext{org}}|$로 정규화.
-  $$	ext{PPL}_{	ext{norm}} = \exp\left( -rac{1}{|\mathcal{T}_{	ext{org}}|} \sum_{t \in \mathcal{T}_{	ext{train}}} \log p_	heta(x_t \mid x_{<t}) ight)$$
+  $$\text{PPL}_{\text{dynamic}} = \exp\left( -\frac{1}{|\mathcal{T}_{\text{org}}|} \sum_{t \in \mathcal{T}_{\text{org}}} \log p_\theta(x_t \mid x_{<t}) \right)$$
+- **Normalized PPL**: 룩업 쿼리 생성에 소모된 우도까지 포함하여 평가하되, 원본 텍스트 길이 $|\mathcal{T}_{\text{org}}|$로 정규화.
+  $$\text{PPL}_{\text{norm}} = \exp\left( -\frac{1}{|\mathcal{T}_{\text{org}}|} \sum_{t \in \mathcal{T}_{\text{train}}} \log p_\theta(x_t \mid x_{<t}) \right)$$
 
 ---
 
@@ -108,4 +107,4 @@ otin \mathcal{T}_v \cup \{\langle|	ext{db\_end}|angle\}\}$$
 
 ### Constrained vs. Unconstrained Query Decoding
 ![Unconstrained vs Constrained Decoding](../paper/figures/lmlm_fig9_constrained_vs_unconstrained.png)
-*Figure 9: 비제약적 임베딩 코사인 검색(좌측) vs. Prefix-Tree(Trie) 기반 제약 생성(우측). Prefix-tree 디코딩은 구조적 정합성을 보장하나 작은 DB에서는 다양성이 제한될 수 있음.*
+*Figure 9: 비제약적 임베딩 코사인 검색(좌측) vs. Prefix-Tree(Trie) 기반 제약 디코딩(우측). Prefix-tree 디코딩은 구조적 정합성을 보장하나 작은 DB에서는 다양성이 제한될 수 있음.*
