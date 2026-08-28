@@ -68,18 +68,21 @@ v_tilde_m = [v_tilde^1_m, ..., v_tilde^l_m, ..., v_tilde^L_m]^T = W_tilde_V · v
 
 ## 3. 직사각형 어텐션 메커니즘 vs 전통적 Encoder-Decoder (Cross-Attention)
 
-### 수식 정의 (Section 4, Eq. 9 & 10)
+### 수식 정의 및 검색 쿼리 (`q_tilde`) 계산 (Section 4, Eq. 9 & 10)
 `L`개 레이어의 디코더 모델에서 `l`번째 어텐션 레이어에 입력되는 프롬프트 토큰 시퀀스 `x^l = [x^l_1, ..., x^l_N]^T ∈ R^(N × D)`와 `M`개의 지식 토큰 `{(k_tilde^l_m, v_tilde^l_m)}_{m=1}^M`에 대해, 어텐션 출력 `y_tilde^l_n ∈ R^D`는 다음과 같이 계산된다:
 
 ```
 y_tilde^l_n = ( ∑_{m=1}^M exp(w_tilde^l_{n,m}) · v_tilde^l_m + ∑_{i=1}^n exp(w^l_{n,i}) · v^l_i ) / ( ∑_{m=1}^M exp(w_tilde^l_{n,m}) + ∑_{i=1}^n exp(w^l_{n,i}) )
 ```
 
-여기서 어텐션 로짓은 다음과 같다:
+여기서 이원화된 쿼리 및 어텐션 로짓 계산 식은 다음과 같다:
 
 ```
-w_tilde^l_{n,m} = ⟨q_tilde^l_n, k_tilde^l_m⟩ / √D,    where q_tilde^l_n = W_tilde^l_Q · x_n
-w^l_{n,i}       = ⟨q^l_n, k^l_i⟩ / √D,            where q^l_n       = W^l_Q · x_n
+[프롬프트 내부 인과 쿼리]   q^l_n       = W^l_Q · x^l_n         (코드: self.q_proj, RoPE 적용)
+[KB 지식 검색 전용 쿼리] q_tilde^l_n = W_tilde^l_Q · x^l_n   (코드: self.q_proj_new, W^l_Q로 초기화 후 학습)
+
+w_tilde^l_{n,m} = ⟨q_tilde^l_n, k_tilde^l_m⟩ / √D    (KB 지식 소프트 검색 스코어)
+w^l_{n,i}       = ⟨q^l_n, k^l_i⟩ / √D            (프롬프트 내부 인과 어텐션 스코어)
 ```
 
 ### 전통적 Encoder-Decoder 구조와의 핵심 차이점

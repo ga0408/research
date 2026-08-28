@@ -133,7 +133,7 @@ v_tilde_m = [v_tilde^1_m, ..., v_tilde^l_m, ..., v_tilde^L_m]^T = W_tilde_V · v
 - 고정된 KB에 대해서는 `k_m`과 `v_m`을 사전에 계산(Offline Pre-computation)하여 디스크/메모리에 캐싱하므로, 추론 시에는 경량 선형 변환만 수행되어 지연 시간이 극소화된다.
 - 상세 코드 구현 → [snippets: kb_encoder](../source/git/snippets/KBLaM_Knowledge_Base_augmented_Language_Model_2025_ICLR__kb_encoder.md)
 
-### 3. 직사각형 어텐션 메커니즘 (Rectangular Attention)
+### 3. 직사각형 어텐션 메커니즘 및 검색 쿼리 (`q_tilde`) 계산 방식
 
 표준 인과 셀프 어텐션과 달리, KBLaM에서는 프롬프트 시퀀스 `x^l = [x^l_1, ..., x^l_N]^T ∈ R^(N × D)`의 각 토큰 `n`에 대해 다음과 같은 직사각형 어텐션을 수행한다:
 
@@ -141,12 +141,28 @@ v_tilde_m = [v_tilde^1_m, ..., v_tilde^l_m, ..., v_tilde^L_m]^T = W_tilde_V · v
 y_tilde^l_n = ( ∑_{m=1}^M exp(w_tilde^l_{n,m}) · v_tilde^l_m + ∑_{i=1}^n exp(w^l_{n,i}) · v^l_i ) / ( ∑_{m=1}^M exp(w_tilde^l_{n,m}) + ∑_{i=1}^n exp(w^l_{n,i}) )
 ```
 
-어텐션 로짓 계산 식:
+#### ① 이원화된 쿼리 아키텍처: 표준 쿼리(`q`) vs 지식 검색 쿼리(`q_tilde`)
+KBLaM은 입력 프롬프트의 각 토큰 은닉 상태 `x^l_n ∈ R^D`로부터 목적이 완전히 다른 **두 가지 독립 쿼리 벡터**를 병렬로 도출한다:
 
 ```
-w_tilde^l_{n,m} = ⟨q_tilde^l_n, k_tilde^l_m⟩ / √D,    where q_tilde^l_n = W_tilde^l_Q · x_n
-w^l_{n,i}       = ⟨q^l_n, k^l_i⟩ / √D,            where q^l_n       = W^l_Q · x_n
+[표준 인과 문맥 쿼리]   q^l_n       = W^l_Q · x^l_n         (코드: self.q_proj)
+[KB 지식 검색 전용 쿼리] q_tilde^l_n = W_tilde^l_Q · x^l_n   (코드: self.q_proj_new)
 ```
+
+```
+                      ┌──> [ W^l_Q (동결된 기존 q_proj) ]    ──> q^l_n       (프롬프트 내부 문맥 파악용)
+x^l_n (은닉 상태 D차원) ┤
+                      └──> [ W_tilde^l_Q (학습된 q_proj_new) ] ──> q_tilde^l_n (KB 지식 토큰 검색용 쿼리)
+```
+
+1. **지식 검색 쿼리 `q_tilde^l_n` 계산 및 특징**:
+   * **계산 공식**: `l`번째 레이어의 입력 은닉 상태 `x^l_n`에 학습 가능한 선형 프로젝션 행렬 `W_tilde^l_Q ∈ R^(D × D)`를 곱하여 계산된다 (`q_proj_new(hidden_states)`).
+   * **가중치 초기화 및 학습**: 사전학습된 기존 LLM의 `W^l_Q` 가중치로 초기화된 후, 합성 데이터 인스트럭션 튜닝을 통해 질문 내에서 엔티티명이나 속성명이 등장할 때 해당 정답 지식 키(`k_tilde_m`)와 내적 유사도가 최대화되도록 가중치가 갱신된다.
+   * **위치 임베딩(RoPE) 미적용**: 프롬프트 내부 쿼리 `q`는 시퀀스 순서를 반영하기 위해 RoPE(Rotary Position Embedding)를 적용하지만, `q_tilde`는 순서가 없는(Orderless) 독립적 지식 집합을 검색하므로 위치 왜곡 없이 순수 의미론적 내적 매칭을 수행한다.
+2. **어텐션 로짓 및 RAG 유사도 내재화**:
+   * KB 지식 검색 로짓: `w_tilde^l_{n,m} = ⟨q_tilde^l_n, k_tilde^l_m⟩ / √D`
+   * 프롬프트 인과 모델링 로짓: `w^l_{n,i} = ⟨q^l_n, k^l_i⟩ / √D`
+   * 즉, RAG에서 별도 벡터 DB가 수행하던 `Cosine_Similarity(Query, Doc)` 연산이 트랜스포머 어텐션 내부의 `⟨q_tilde, k_tilde⟩` 점수로 자연스럽게 내재화되어 소프트 검색을 수행한다.
 
 ```
 [직사각형 어텐션 행렬 구조: (M + N) x N]
@@ -160,7 +176,6 @@ q_N │ w_tilde_{N,1} ... w_tilde_{N,M} │ w_{N,1}  w_{N,2}   ... w_{N,N} │
          (선형 소프트 검색 영역)           (표준 인과 언어 모델링 영역)
 ```
 
-- `W_tilde^l_Q ∈ R^(D × D)`: 사전학습된 `W^l_Q`로부터 초기화되는 KB 검색 전용 독립 쿼리 헤드 (`sep_query_head`). 프롬프트 인과 모델링 쿼리와 분리하여 검색 정밀도를 극대화.
 - 지식 토큰들은 상호 간에 어텐션을 계산하지 않으므로(`M × M` 어텐션 제거), 연산 복잡도는 `O(M²)`가 아닌 `O(MN)`으로 선형화된다.
 - 상세 코드 구현 → [snippets: rectangular_attention](../source/git/snippets/KBLaM_Knowledge_Base_augmented_Language_Model_2025_ICLR__rectangular_attention.md)
 
