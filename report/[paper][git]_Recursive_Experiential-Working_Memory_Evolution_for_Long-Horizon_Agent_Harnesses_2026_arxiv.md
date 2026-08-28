@@ -292,7 +292,64 @@ Task Success Rate (%) across Interaction Horizon Quartiles (τ²-Retail)
 | **원시 대화 로그 제공 (Raw Trajectory)** | 37.0% | 36.8% | 스킬 미호출(Invocation fault)을 전혀 감지 못함 (0%) |
 | **구조화된 실행 추적 제공 (`Γ_k`)** | **64.8%** | **64.4%** | 상태 타임라인과 체커 결정을 통해 정확한 귀인 달성 |
 
+### 5. Case Studies: 실제 실험 데이터 기반 동작 예시
+
+#### 예시 1. 과제 내부(Within-Task) 결합: 자기 선언적 완료 환각 방지 및 영수증 그라운딩
+- **과제 시나리오 (τ²-Retail)**: 고객이 주문(`ord_987`)의 블루 셔츠(`item_01`) 반품 및 블랙 셔츠(`item_02`)로의 교환을 요청.
+
+```
+[ 일반 Baseline Agent ]
+ 1. 고객: "블루 셔츠 반품하고 블랙으로 교환해주세요."
+ 2. Base Agent (대화 히스토리에만 의존):
+    - 텍스트 응답: "네 고객님, 반품 및 교환 처리가 완료되었습니다!"
+    - 실제 도구 호출: 없음 (DB 미반영)
+ 3. 결과: 환경 도구 영수증 부재 -> 0점 (실패)
+
+[ Recuris Agent (EM–WM 결합) ]
+ 1. 고객: "블루 셔츠 반품하고 블랙으로 교환해주세요."
+ 2. Working Memory (w_t):
+    - [ ] Return item_01: PENDING
+    - [ ] Exchange item_01 -> item_02: PENDING
+ 3. Agent 텍스트 응답: "네 고객님, 반품 및 교환 도와드리겠습니다."
+    - Grounding Kernel: 텍스트 답변만으로는 PENDING 유지, 세션 종료 차단
+ 4. Call-Time Invocation (ρ_k):
+    - Agent가 `exchange_item` 호출 작성 시 `exchange_item.md` 스킬 자동 주입
+    - "주의: 교환 전 재고/옵션 ID(get_product_variants)를 먼저 조회할 것"
+ 5. 도구 실행 및 체커 검증 (C_k):
+    - `call return_item(ord_987, item_01)` -> Receipt OK -> [x] Return: DONE
+    - `call exchange_item(ord_987, item_01, item_02)` -> Receipt OK -> [x] Exchange: DONE
+ 6. 결과: 환경 영수증 뒷받침 완료 -> 100점 (성공)
+```
+
+#### 예시 2. 과제 간(Cross-Task) 진화: Same-Item Exchange 결함 국소화 및 패치 전이
+- **실제 실패 사례 (Figure 10)**: 교환 도구 호출 시 신규 아이템 ID 대신 기존 아이템 ID를 중복 입력하여(`exchange_item(old_id, new_id=old_id)`) 도구 자체는 접수되었으나 비즈니스 검증에서 실패한 사례.
+
+```
+1. 구조화된 실행 추적 기록 (Γ_k):
+   - w_t: [ ] Exchange order_55: pending
+   - a_t: exchange_item(order_id="55", item_id="item_A", replacement_item_id="item_A")
+   - o_t: {"status": "success", "message": "Exchange submitted"}
+   - c_t: 0 (동일 아이템 교환 비즈니스 로직 위반) -> y = 0 (실패)
+
+2. Trace 기반 고장 국소화 (A_fixed):
+   - Meta-Agent가 전체 하네스를 수정하지 않고 Γ_k를 분석:
+     "도구는 정상 호출되었으나, 스킬 카드에 교환 전 신규 SKU ID 조회(get_product_variants) 절차 누락"
+   - 결함 컴포넌트 특정: Z_k = {E} (Experiential Memory 결함으로 국소화)
+
+3. 부품별 국소 패치 (M_k ⊕_{Z_k} P):
+   - W (작업기억), ρ (호출정책), C (체커)는 바이트 단위 100% 보존
+   - E의 `exchange_item.md` 카드만 수정: "교환 전 반드시 get_product_variants 실행 후 SKU 입력"
+
+4. 통계 검증 게이트 (G_fixed):
+   - 원본 실패 과제 재실행 성공 + 보류 개발셋(Dev 12개 과제) 부트스트랩 유의성 검정(CI > 0, 퇴보 0건)
+   - 후보 메모리 M_k^+를 정식 M_{k+1}로 승인
+
+5. 미지의 홀드아웃 과제(86개) 제로샷 전이:
+   - 한 번도 보지 못한 교환 과제들에서 신규 SKU를 사전에 조회하여 성공률 0% -> 100% 달성
+```
+
 ---
+
 
 ## Comparison with Existing Paradigms
 
