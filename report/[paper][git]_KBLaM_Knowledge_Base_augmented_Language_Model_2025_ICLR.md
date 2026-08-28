@@ -4,21 +4,22 @@
 
 ## Summary & Outline
 
-외부 지식 베이스(Knowledge Base, KB)의 구조화된 트리플 `⟨name, property, value⟩`을 사전학습 문장 인코더와 선형 어댑터를 통해 1개 토큰 크기의 연속 키-값 벡터 쌍인 **지식 토큰(Knowledge Token, `(k_tilde_m, v_tilde_m)`)**으로 변환한 뒤, 사전학습 거대 언어 모델(LLM)의 각 어텐션 레이어에 **직사각형 어텐션(Rectangular Attention)** 구조로 직접 주입하여 외부 지식을 증강하는 프레임워크인 **KBLaM(Knowledge Base augmented Language Model)**을 분석한다 (ICLR 2025 선정).
+외부 지식 베이스(Knowledge Base, KB)의 구조화된 트리플 `⟨name, property, value⟩`을 사전학습 문장 인코더와 선형 어댑터를 통해 1개 토큰 크기의 연속 키-값 벡터 쌍인 **지식 토큰(Knowledge Token, `(k_tilde_m, v_tilde_m) ∈ R^(L × D)`)**으로 변환한 뒤, 사전학습 거대 언어 모델(LLM)의 각 어텐션 레이어에 **직사각형 어텐션(Rectangular Attention)** 구조로 직접 주입하여 외부 지식을 증강하는 프레임워크인 **KBLaM(Knowledge Base augmented Language Model)**을 분석한다 (ICLR 2025 선정).
 
-KBLaM은 기존 RAG(Retrieval-Augmented Generation)와 같이 외부 검색기(Retriever) 모듈에 의존하는 2단계 파이프라인의 검색 오류 전파 및 최적화 단절 문제를 제거하고, 인컨텍스트 학습(In-Context Learning, ICL)의 이차적 계산·메모리 복잡도(`O((M·K + N)²D)`)를 극복하여 KB 크기 `M`에 대해 완전한 선형 복잡도(`O((M + N)ND)`)를 달성한다. 이를 통해 8K 컨텍스트 윈도우를 가진 8B LLM(Llama-3 8B, Phi-3-mini)에 **단일 A100 80GB GPU 환경에서 10,000개(10K+) 이상의 지식 트리플을 단일 컨텍스트로 통합**할 수 있다.
+KBLaM은 사전학습된 LLM 백본과 문장 인코더를 완전히 동결(Frozen)한 채 오직 경량 선형 어댑터만 학습시키는 방식을 채택한다. 기존 RAG(Retrieval-Augmented Generation)와 같이 외부 검색기(Retriever) 모듈에 의존하는 2단계 파이프라인의 검색 오류 전파 및 최적화 단절 문제를 제거하고, 인컨텍스트 학습(In-Context Learning, ICL)의 이차적 계산·메모리 복잡도(`O((M·K + N)²D)`)를 극복하여 KB 크기 `M`에 대해 완전한 선형 복잡도(`O((M + N)ND)`)를 달성한다. 이를 통해 8K 컨텍스트 윈도우를 가진 8B LLM(Llama-3 8B, Phi-3-mini)에 **단일 A100 80GB GPU 환경에서 10,000개(10K+) 이상의 지식 트리플을 단일 컨텍스트로 통합**할 수 있다.
 
 ```
 [KBLaM 전체 구조 Outline]
 ├── 1. Problem & Motivation: 외부 지식 주입 패러다임 비교 및 기존 RAG / ICL / SFT의 한계
 ├── 2. Contributions: 지식 토큰화, 직사각형 어텐션, 길이 스케일링, 완전 합성 정렬 학습
 ├── 3. Method:
-│   ├── Step 1. Knowledge Token Formulation: ⟨name, property, value⟩ -> (k_tilde_m, v_tilde_m)
+│   ├── Step 1. Knowledge Token Formulation: ⟨name, property, value⟩ -> 1개 토큰 크기 (L × D) 압축
 │   ├── Step 2. Linear Adapters & Offline Pre-computation
 │   ├── Step 3. Rectangular Attention Mechanism & Separate Query Head (W_tilde_Q)
-│   ├── Step 4. Attention Score Scaling for Length Generalization (log(C) - log(M))
-│   ├── Step 5. Dynamic Sparsification (Top-K Key-Value Pruning for O(K) Inference)
-│   └── Step 6. Instruction Tuning with 100% Synthetic Datasets (4 Q&A Types)
+│   ├── Step 4. 전통적 Encoder-Decoder (Cross-Attention) 아키텍처와의 구조적 비교 분석
+│   ├── Step 5. Attention Score Scaling for Length Generalization (log(C) - log(M))
+│   ├── Step 6. Dynamic Sparsification (Top-K Key-Value Pruning for O(K) Inference)
+│   └── Step 7. Instruction Tuning with 100% Synthetic Datasets (동결 백본 & 경량 어댑터 학습)
 ├── 4. Experiments & Results:
 │   ├── Attention Interpretability & Retrieval Top-1/Top-5 Accuracy
 │   ├── Simple & Multi-Entity Q&A (BERT Score F1)
@@ -84,8 +85,8 @@ KBLaM은 지식 베이스의 구조적 독립성을 수학적으로 모델링하
    - KB 크기 `M`이 확장될 때 소프트맥스 분모에서 지식 토큰의 누적 합이 프롬프트 내부 토큰 정보를 압도하는 현상을 방지하기 위해 `log(C) - log(M)` 상수 오프셋 시프트를 도입하여 임의의 `M`에 대한 일반화 보장.
 4. **동적 희소화 (Dynamic Sparsification / Top-K Key-Value Pruning)**:
    - 추론 시 쿼리와 지식 토큰 키 간의 내적 스코어 상위 K개만 선별하여 어텐션을 수행하는 동적 프루닝 메커니즘을 지원하여 초대규모 KB 환경에서도 극도의 속도와 낮은 메모리 점유 실현.
-5. **지식 비의존적 합성 인스트럭션 튜닝 (100% Synthetic Instruction Tuning)**:
-   - 파라미터 학습의 목적이 "지식 암기"가 아니라 "인코더 임베딩 공간과 LLM 어텐션 공간 간의 선형 투영(Projection)"임을 규명.
+5. **동결 백본 기반 합성 인스트럭션 튜닝 (100% Synthetic Instruction Tuning)**:
+   - 거대 언어 모델 백본을 동결한 채, 파라미터 학습의 목적이 "지식 암기"가 아니라 "인코더 임베딩 공간과 LLM 어텐션 공간 간의 선형 투영(Projection)"임을 규명.
    - LLM 사전 지식과 무관한 135K 완전 합성 트리플을 기반으로 4종(Simple, Multi-Entity, Open-Ended, Unanswerable) 인스트럭션 튜닝을 수행하여 실제 도메인(Enron email)으로의 제로샷 OOD 일반화 및 환각 억제(답변 거부) 달성.
 6. **오픈소스 생태계 기여**:
    - PyTorch 및 Hugging Face 기반의 완전한 소스코드와 데이터셋(합성 KB, Enron KB)을 공개하여 재현성과 후속 연구 기반 제공.
@@ -96,7 +97,7 @@ KBLaM은 지식 베이스의 구조적 독립성을 수학적으로 모델링하
 
 ![KBLaM Architecture Overview](../source/paper/figures/kblam_fig2_architecture_overview.png)
 
-### 1. 지식 베이스 및 지식 토큰 정의
+### 1. 지식 베이스 및 지식 토큰의 차원적 정의 (Dimension L × D)
 
 지식 베이스(KB)는 비정형 코퍼스에서 엔티티 추출기를 통해 획득한 `M`개의 트리플 집합으로 정의된다:
 
@@ -113,6 +114,12 @@ v_m = f(<value>_m) ∈ R^P
 
 - **Key의 역할**: 식별자(Identifier)로서 프롬프트 쿼리와 매칭되어 해당 지식의 관련도를 결정.
 - **Value의 역할**: 실제 지식 콘텐츠(Content)로서 어텐션 가중합을 통해 모델의 은닉 상태로 전달.
+
+#### 차원 `L × D`의 구조적 의미
+각 지식 토큰은 `L × D` 차원의 텐서로 표현된다:
+* **`L` (Number of Transformer Layers)**: 백본 트랜스포머의 **전체 레이어 수**를 의미한다 (Llama-3 8B의 경우 `L = 32`, Phi-3-mini의 경우 `L = 32`). LLM은 하위 레이어에서 상위 레이어로 갈수록 구문 분석에서 고차원 의미 추론으로 표현 공간이 변화하므로, 단일 지식 항목이라도 각 레이어별 전용 Key/Value 벡터(`k_tilde^1_m, ..., k_tilde^L_m`)를 별도로 보유한다.
+* **`D` (Hidden Dimension)**: LLM 어텐션의 **전체 은닉 차원 크기** (`hidden_size = num_heads × head_dim`)를 의미한다 (Llama-3 8B의 경우 `32 heads × 128 = 4096`, Phi-3-mini의 경우 `3072`). 이는 일반 텍스트 토큰 1개가 어텐션 레이어에서 차지하는 Key/Value 벡터의 크기와 정확히 일치한다.
+* **1개 토큰으로의 압축**: 기존 ICL에서는 수십 토큰을 차지하던 긴 문자열의 트리플이, KBLaM에서는 **각 레이어당 정확히 1개 토큰 크기(`1 × D`)의 Key/Value 슬롯**으로 압축되어 총 `L × D`의 고정 차원으로 유지된다.
 
 ### 2. 선형 어댑터 및 오프라인 임베딩 사전 연산
 
@@ -157,7 +164,37 @@ q_N │ w_tilde_{N,1} ... w_tilde_{N,M} │ w_{N,1}  w_{N,2}   ... w_{N,N} │
 - 지식 토큰들은 상호 간에 어텐션을 계산하지 않으므로(`M × M` 어텐션 제거), 연산 복잡도는 `O(M²)`가 아닌 `O(MN)`으로 선형화된다.
 - 상세 코드 구현 → [snippets: rectangular_attention](../source/git/snippets/KBLaM_Knowledge_Base_augmented_Language_Model_2025_ICLR__rectangular_attention.md)
 
-### 4. 길이 일반화 어텐션 스케일링
+### 4. 전통적 Encoder-Decoder (Cross-Attention) 구조와의 비교 분석
+
+KBLaM의 직사각형 어텐션은 T5, BART 등 전통적인 인코더-디코더 구조의 크로스 어텐션(Cross-Attention)과 겉보기에는 유사해 보이지만, 아키텍처 및 시스템 레벨에서 근본적인 차별점을 갖는다:
+
+```
+[전통적 Encoder-Decoder 디코더 블록 (2단계 분리 구조)]
+Input ──> [ Masked Self-Attention ] ──> [ Cross-Attention (with Encoder Output) ] ──> [ FFN ] ──> Output
+          (프롬프트 토큰들끼리만)         (인코더 출력 시퀀스 전체에 대해서만)
+
+[KBLaM 디코더 블록 (단일 소프트맥스 직사각형 어텐션 융합)]
+Input ──> [ Rectangular Attention: (Prompt Self-Attn + KB Knowledge Tokens) ] ──> [ FFN ] ──> Output
+          (단일 소프트맥스 안에서 프롬프트 문맥과 KB 지식이 동시에 경쟁·가중합)
+```
+
+| 비교 항목 | 전통적 Encoder-Decoder (T5, BART) | **KBLaM (Rectangular Attention)** |
+|---|---|---|
+| **어텐션 결합 방식** | Self-Attn 레이어와 Cross-Attn 레이어가 순차적으로 분리 | **단일 어텐션 행렬 `(M+N) × N`에서 단일 소프트맥스로 동시 융합** |
+| **지식 표현 및 복잡도** | 인코더 내부에서 모든 토큰 간 상호 셀프 어텐션 (`O(M²_tokens)`) | **각 지식 트리플을 1개 토큰으로 독립 인코딩 (`O(M)`)** |
+| **지식 갱신 (Mutation)** | 문서 일부 변경 시 인코더 전체 재연산 필요 | **수정된 1개 지식 토큰만 즉시 교체 (O(1), 기존 KV 캐시 보존)** |
+| **백본 모델 및 학습** | 인코더-디코더 모델 전체 사전학습/파인튜닝 필요 | **기존 Decoder-Only LLM 백본을 완전 동결(Frozen)한 채 경량 어댑터만 학습** |
+
+1. **단일 소프트맥스 확률 융합**:
+   - Encoder-Decoder는 Self-Attention 결과 벡터를 다시 Cross-Attention의 Query로 전달하는 2단계 분리 구조를 취한다.
+   - 반면 KBLaM은 별도의 하위 레이어를 추가하지 않고, 단일 소프트맥스 분모/분자 내에서 프롬프트 내부 토큰(`∑ exp(w) · v`)과 KB 지식 토큰(`∑ exp(w_tilde) · v_tilde`)이 동시에 경쟁하도록 하여, 문맥 정보와 외부 지식의 가중치가 하나의 확률 분포 안에서 최적화된다.
+2. **독립적 지식 토큰화에 의한 선형성**:
+   - Encoder-Decoder의 인코더는 외부 지식 텍스트 전체에 대해 양방향 어텐션을 수행하므로 지식 크기에 따라 연산량이 이차적으로 폭증한다.
+   - KBLaM은 지식 간 상호 어텐션을 완전히 배제하고 독립적으로 1개 토큰 크기로 사영하므로 `O(M)`의 엄격한 선형성을 달성한다.
+3. **초고속 동적 갱신(Dynamic Cache Mutation)**:
+   - 외부 지식이 수정될 때 인코더 전체를 재연산해야 하는 Encoder-Decoder와 달리, KBLaM은 수정된 트리플의 `(k_tilde_m, v_tilde_m)` 슬롯 하나만 즉시 갱신할 수 있다.
+
+### 5. 길이 일반화 어텐션 스케일링
 
 KB의 크기 `M`이 학습 시 관측한 크기보다 훨씬 커지면, 소프트맥스 분모에서 지식 토큰들의 누적 합 `∑_{m=1}^M exp(w_tilde^l_{n,m})`이 프롬프트 내부 토큰들의 합 `∑_{i=1}^n exp(w^l_{n,i})`을 압도하여 프롬프트 질문 정보가 희석되는 문제가 발생한다.
 
@@ -170,7 +207,7 @@ w_tilde^l_{n,m} = log(C) - log(M) + ⟨q_tilde^l_n, k_tilde^l_m⟩ / √D
 - `C`는 학습 시 설정된 최대 컨텍스트 트리플 수 (실험에서는 `C = 100`).
 - 이는 `M`개 지식 토큰의 소프트맥스 기여 총량을 `C / M` 비율로 스케일 다운함으로써, `M = 10,000` 이상으로 확장되어도 프롬프트 토큰과 지식 토큰 간의 어텐션 균형을 완벽히 유지한다.
 
-### 5. 추론 가속을 위한 동적 희소화 (Dynamic Sparsification)
+### 6. 추론 가속을 위한 동적 희소화 (Dynamic Sparsification)
 
 추론 시 방대한 지식 베이스 전체(`M >> 10,000`)에 대해 전체 어텐션을 수행하는 대신, 쿼리 임베딩 `q_tilde_n`과 지식 키 `k_tilde_m`의 내적 합을 기반으로 상위 `K`개(`top_k_kb`, 기본값 20~100) 지식 토큰만 선별하는 동적 프루닝(`prune_key_value`)을 지원한다:
 
@@ -182,7 +219,7 @@ kb_values = kb_values.gather(-2, top_idx)
 
 이 메커니즘을 통해 추론 시 어텐션 및 메모리 복잡도를 사실상 `O(KN)`으로 고정할 수 있다.
 
-### 6. 합성 데이터셋 구축 및 4종 인스트럭션 튜닝
+### 7. 합성 데이터셋 구축 및 4종 인스트럭션 튜닝
 
 ![Instruction Tuning Samples](../source/paper/figures/kblam_fig12_instruction_tuning_samples.png)
 
