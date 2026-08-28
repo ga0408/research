@@ -334,6 +334,22 @@ Task Success Rate (%) across Interaction Horizon Quartiles (τ²-Retail)
 
 ---
 
+## Reproducibility & Code References
+
+공식 GitHub 저장소([Gen-Verse/Recuris](https://github.com/Gen-Verse/Recuris) / 서브모듈 `source/git/Recuris_Gen-Verse`)에서 제공하는 핵심 재현 코드 및 모듈 매핑:
+
+| 실험 및 기능 영역 | 핵심 코드 경로 (Git Submodule) | 주요 진입 명령 및 역할 |
+|---|---|---|
+| **통합 실행 CLI** | [`src/recuris/cli.py`](../source/git/Recuris_Gen-Verse/src/recuris/cli.py) | `recuris {tau2,skillflow,tta,metaagent,compare}` CLI 인터페이스 |
+| **런타임 실행 엔진** | [`src/recuris/runtime.py`](../source/git/Recuris_Gen-Verse/src/recuris/runtime.py) | `TurnRuntime`: 상태 기반 인출 및 영수증 그라운딩 루프 |
+| **메타에이전트 진화 루프** | [`src/recuris/metaagent/driver.py`](../source/git/Recuris_Gen-Verse/src/recuris/metaagent/driver.py) | `recuris metaagent run`: 실패 진단 → 국소 패치 → 게이트 검증 캠페인 |
+| **통계 검증 게이트** | [`src/recuris/metaagent/gates.py`](../source/git/Recuris_Gen-Verse/src/recuris/metaagent/gates.py) | `held_out_paired_gate`: 3,000회 부트스트랩 유의성 검정 및 누출 검사 |
+| **사전 진화 챔피언 메모리** | [`skill_memories/`](../source/git/Recuris_Gen-Verse/skill_memories/) | `tau2_retail/`, `tau2_airline/`, `skillflow/`, `tb21/` (추론 즉시 로드) |
+| **고정 평가 분할 데이터** | [`splits/`](../source/git/Recuris_Gen-Verse/splits/) | `splits/tau2/`, `splits/tb21/` (Train / Dev Gate / Test 분할) |
+| **벤치마크 환경 어댑터** | [`src/recuris/adapters/`](../source/git/Recuris_Gen-Verse/src/recuris/adapters/) | `tau2.py`, `skillflow.py`, `tb21.py` (비침습적 하네스 브릿지) |
+
+---
+
 ## References & Relative Links
 - **원본 논문 및 코드**:
   - Paper: [arXiv:2608.24876](https://arxiv.org/abs/2608.24876)
@@ -343,3 +359,4 @@ Task Success Rate (%) across Interaction Horizon Quartiles (τ²-Retail)
   - 런타임 루프 스니펫: [runtime_loop.md](../source/git/snippets/Recursive_Experiential-Working_Memory_Evolution_for_Long-Horizon_Agent_Harnesses_2026_arxiv__runtime_loop.md)
   - 메타에이전트 게이트 스니펫: [metaagent_gates.md](../source/git/snippets/Recursive_Experiential-Working_Memory_Evolution_for_Long-Horizon_Agent_Harnesses_2026_arxiv__metaagent_gates.md)
   - 스킬 메모리 규격 스니펫: [skillmemory_spec.md](../source/git/snippets/Recursive_Experiential-Working_Memory_Evolution_for_Long-Horizon_Agent_Harnesses_2026_arxiv__skillmemory_spec.md)
+
