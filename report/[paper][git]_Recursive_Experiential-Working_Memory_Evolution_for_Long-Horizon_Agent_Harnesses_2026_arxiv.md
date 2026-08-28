@@ -8,7 +8,14 @@
   - `M_k = (E_k, W_k, ρ_k, C_k)` 4중 튜플로 정형화된 스킬 메모리 (경험 기억 `E`, 작업 기억 명세 `W`, 호출 정책 `ρ`, 검증 체커 `C`).
   - 과제 내(Within-Task) 루프: `w_t → ρ_k(w_t, e_t) → a_t → o_t → c_t → w_{t+1}`의 상태 기반 스킬 호출 및 증거 기반 상태 갱신.
   - 과제 간(Cross-Task) 루프: 구조화된 궤적 `Γ_k`를 통한 결함 부품 특정(`Z_k`), 국소 컴포넌트 패치(`⊕_{Z_k}`), 보류 개발셋 기반 결정론적 페어드 부트스트랩 게이트(`G_fixed`).
+- **핵심 표기 체계 요약 (`t` 시점 변수)**:
+  - `t` / `h_t`: 현재 상호작용 스텝(turn) 번호 및 누적 대화/도구 히스토리.
+  - `w_t` / `w_{t+1}`: 스텝 `t` 및 `t+1`에서의 작업 상태 (Working State — `pending`, `done`, `blocked` 목표와 영수증 관리).
+  - `e_t` / `E_t`: 스텝 `t`의 런타임 실행 이벤트 (Execution Event) 및 호출 정책 `ρ_k`에 의해 인출·주입된 경험 스킬 카드 (Experiential Skills).
+  - `a_t` / `o_t`: 에이전트 행동 (Action: 도구 호출 또는 메시지) 및 환경 실행 관측값 (Observation / Tool Receipt).
+  - `w̃_{t+1}` / `c_t`: 작업 기억 명세 `U_{W_k}`가 제안한 차기 상태 가안 (Proposed State) 및 체커 `C_k`의 결정론적 수락/거부 판정 (Checker Decisions).
 - **주요 성과**: 4개 장기 벤치마크 및 10개 언어 모델(3B 경량 오픈소스부터 GPT-5.6 Sol, Claude Opus 5 등 프론티어 모델) 대상 37개 완료 실험 중 35개에서 성능 향상 달성. τ²-Bench에서 GPT-5.6 Sol +17.8점(76.1%), Claude Opus 5 +15.6점(87.9% SOTA) 도달. 상호작용 지평선이 길어질수록 베이스라인과의 격차가 최대 +32.2점까지 확대.
+
 
 ---
 
@@ -125,6 +132,21 @@ M_k = (E_k, W_k, ρ_k, C_k)
 
 ### 2. 과제 내부(Within-Task) 검증된 EM–WM 결합
 
+#### `t` 시점 실행 변수 및 표기 체계
+
+| 기호 | 영문 명칭 | 정의 및 역할 |
+|---|---|---|
+| `t` | **Time Step / Turn Index** | 과제 실행 중 현재 상호작용 단계(턴 번호) |
+| `h_t` | **Interaction History** | 스텝 `t`까지 누적된 대화 및 도구 상호작용 원시 히스토리 |
+| `w_t` | **Working State (작업 상태)** | 스텝 `t` 시점의 구조화된 작업 기억. 미해결(`pending`), 완료(`done`), 차단(`blocked`) 목표와 증거를 관리 |
+| `e_t` | **Execution Event (실행 이벤트)** | 스텝 `t`에서 발생한 하네스 이벤트 (예: `TURN_START`, `INTENT_RECORDED`, `PRE_WRITE` 등) |
+| `E_t` | **Experiential Skills (경험 스킬)** | 호출 정책 `ρ_k(w_t, e_t)`에 의해 현재 상태 `w_t`와 이벤트 `e_t`를 기반으로 선별 인출된 스킬 카드 집합 |
+| `a_t` | **Drafted/Executed Action (행동)** | 에이전트 모델(`π_θ`)이 생성한 사용자 메시지 또는 도구 호출(Tool Call) |
+| `o_t` | **Environment Observation (관측값)** | 행동 `a_t` 실행 후 환경/도구가 반환한 실제 결과값 (도구 영수증, 에러, 사용자 텍스트) |
+| `w̃_{t+1}` | **Proposed State (제안 상태)** | 관측값 `o_t`를 바탕으로 작업 기억 명세 `U_{W_k}`가 제안한 차기 작업 상태 가안 |
+| `c_t` | **Checker Decisions (체커 판정)** | 결정론적 체커 `C_k`가 관측 증거 `o_t`를 평가하여 상태 전이의 수락(`1`)/거부(`0`)를 결정한 결과 |
+| `w_{t+1}` | **Committed Next State (확정 상태)** | 고정 커널 `K`가 체커 판정 `c_t`에 따라 증거가 입증된 변경만 반영하여 확정한 차기 작업 상태 |
+
 - **구조화된 작업 상태 (Structured Working State)**:
   - 각 목표 항목 `g`는 내용(content), 상태(status: `pending`, `done`, `blocked`), 뒷받침 증거(supporting evidence), 선택적 차단 사유(blocker)를 명시적으로 추적한다.
   - 에이전트는 대화창 상단에 렌더링된 마크다운 상태 보드(Status Board)를 통해 미해결 목표(`pending`)를 항상 인지한다.
@@ -133,6 +155,7 @@ M_k = (E_k, W_k, ρ_k, C_k)
     ```
     E_t = ρ_k(w_t, e_t; E_k)
     ```
+
   - **Call-Time Invocation**: 모델이 상태 변경 도구 호출을 작성하는 순간(`PRE_WRITE`), 해당 도구의 이름과 연계된 스킬 카드를 즉시 컨텍스트에 주입하여 올바른 인자 규격을 준수하도록 강제한다.
   - **Boundary Invocation**: 턴 시작(`TURN_START`) 또는 의도 기록(`INTENT_RECORDED`) 시점에 미완료 목표에 부합하는 가이드를 주입한다.
 - **증거 기반 상태 갱신 (Evidence-Grounded State Update)**:
