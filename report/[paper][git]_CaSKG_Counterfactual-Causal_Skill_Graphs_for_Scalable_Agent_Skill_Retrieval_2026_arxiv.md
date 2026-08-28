@@ -235,6 +235,45 @@ p^(t+1) = γ · π_q + (1 - γ) · T^T · p^(t)
 
 ---
 
+### 4.6 실험 데이터 기반 4단계 방법론 엔드투엔드 워크스루 (End-to-End Walkthrough)
+
+제안된 CaSKG의 4단계 알고리즘이 실제 벤치마크 태스크에서 어떻게 동작하는지, 논문 실험에 사용된 대표적 에피소드를 통해 구체적으로 살펴본다.
+
+#### 1) ScienceWorld `test-conductivity` (염화나트륨 전도도 검사) 워크스루
+- **태스크 목표**: 염화나트륨(NaCl)이 전기를 전도하는지 검사하고, 판정 결과에 따라 올바른 보관 상자(Green/Red box)에 배치하라.
+- **필수 절차 체인**: `focus_material`(시료 선택) → `assemble_circuit`(회로 조립) → `test_conductivity`(시료 연결) → `classify_conductive`(전도성 판정) → `place_in_box`(상자 보관)
+
+```
+[ ScienceWorld test-conductivity 인과 체인 ]
+ focus_material ──> assemble_circuit ──> test_conductivity ──> classify_conductive ──> place_in_box
+ (선행 물질 선택)    (선행 물리 준비)     (핵심 동작 실행)      (관찰 기반 판정)        (최종 완료)
+```
+
+- **Stage 1 (후보 유도)**:
+  - 후보 쌍 `(assemble_circuit, test_conductivity)`: 의미 유사도 `φ_sem = 0.52`, 회로 I/O 일치 `φ_io = 1.0`, 준비→실행 구조 전이 `φ_struct = 0.95` → 초기 연관 점수 `A_ij = 0.81`로 상위 검증 프론티어 `F`(|F|=500)에 진입.
+  - 가짜 연관성 후보 `(heat_substance, test_conductivity)`: 의미적 도구 유사성만 존재하여 `A_ij = 0.32` 산출.
+- **Stage 2 (반사실적 프로빙)**:
+  - **Removal Probe (`P_rem = (∅, test_conductivity)`)**: "회로 조립 없이 전도도를 측정할 수 있는가?" → 회로 부재로 측정 불가 판정, 붕괴 점수 `e^(rem) = 0.95` (필요성 입증).
+  - **Substitution Probe (`P_sub = (cool_substance, test_conductivity)`)**: "회로 조립 대신 냉각 스킬을 실행하면 측정이 가능한가?" → 측정과 무관하여 절차 저해 판정, `e^(sub) = 0.90` (특이성 입증).
+  - **Reordering Probe (`P_ord = (test_conductivity, assemble_circuit)`)**: "측정을 먼저 수행하고 나중에 회로를 조립하는 순서가 물리적으로 타당한가?" → 순서 모순 판정, `e^(ord) = 0.98` (방향성 입증).
+  - 반면 `(heat_substance, test_conductivity)`는 Removal 프로브에서 "가열하지 않아도 전도도 측정 가능(`e^(rem) = 0.10`)" 판정을 받아 기각 증거 획득.
+- **Stage 3 (베이지안 평활화 & 게이팅)**:
+  - `(assemble_circuit, test_conductivity)`: 지지 증거 누적으로 `α = 3.65, β = 1.0` → 신뢰도 `c_ij = 0.785 > τ_c(0.70)` → **`confirmed` (`ρ = 1.0`, 가중치 0.81 완전 보존)**.
+  - `(heat_substance, test_conductivity)`: 기각 증거 누적으로 `α = 1.0, β = 3.80` → 신뢰도 `c_ij = 0.208 < 0.30` → **`rejected` (`ρ = 0.0`, 그래프에서 영구 삭제)**.
+- **Stage 4 (PPR 확산 검색)**:
+  - 질의 "Determine if sodium chloride conducts electricity" 인입 시 `test_conductivity`가 시드(`π_q`)로 지정됨.
+  - 보정된 엣지를 타고 `assemble_circuit`, `classify_conductive`, `place_in_box`로 확률 질량이 확산되어 컴팩트한 실행 가능 스킬 묶음 반환.
+
+#### 2) 검색 방식별 실제 에이전트 실행 궤적 비교
+
+| 검색 방식 | 에이전트 주입 스킬 컨텍스트 | 실제 실행 궤적 및 에이전트 행동 분석 | 최종 점수 / 스텝 |
+|---|---|---|---|
+| **Vector RAG** | `test_conductivity`, `measure_temperature`, `clean_tool` | 회로 조립 지식이 없어 전선만 반복 조작하다 타임아웃 | **5점 / 30스텝 (실패)** |
+| **GoS (Graph-of-Skills)** | `test_conductivity`, `assemble_circuit`, `heat_liquid`, `repair_terminal` | 회로는 구성했으나 유입된 가열/수리 루틴에 빠져 시료 연결 실패 | **55점 / 30스텝 (부분 성공)** |
+| **CaSKG (제안 모델)** | `focus_material`, `assemble_circuit`, `test_conductivity`, `classify_conductive`, `place_in_box` | 회로 조립 → 염화나트륨 연결 → 전구 미점등 관찰 → 부도체 판정 → 녹색 상자 배치 완료 | **100점 / 24스텝 (완벽 성공)** |
+
+---
+
 ## 5. Experiments & Results
 
 ### 5.1 실험 환경 및 벤치마크
