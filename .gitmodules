@@ -31,3 +31,6 @@
 [submodule "source/git/KBLaM_microsoft"]
 	path = source/git/KBLaM_microsoft
 	url = https://github.com/microsoft/KBLaM.git
+[submodule "source/git/Caskg_ZhiyuanLi218"]
+	path = source/git/Caskg_ZhiyuanLi218
+	url = https://github.com/ZhiyuanLi218/Caskg.git
