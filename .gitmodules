@@ -40,3 +40,6 @@
 [submodule "source/git/Recuris_Gen-Verse"]
 	path = source/git/Recuris_Gen-Verse
 	url = https://github.com/Gen-Verse/Recuris.git
+[submodule "source/git/On-Policy-Self-Adaptation_DripNowhy"]
+	path = source/git/On-Policy-Self-Adaptation_DripNowhy
+	url = https://github.com/DripNowhy/On-Policy-Self-Adaptation.git
