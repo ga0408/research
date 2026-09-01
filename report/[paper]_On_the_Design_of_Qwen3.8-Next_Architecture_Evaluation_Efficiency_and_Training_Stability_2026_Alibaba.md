@@ -306,6 +306,98 @@ a_{u→v} = (1 / nr) · ∑_{c=1}^{nr} G_c^{(v)} ⊙ γ_c ⊙ (s_c^{(u)} · y^{(
 
 ---
 
+---
+
+## Training Recipe, Data & Post-Training (RL) Analysis
+
+본 논문은 주로 **Qwen3.8-Flash-Next-Base**의 아키텍처 설계, 사전학습(Pre-training) 효율화, 그리고 초대규모 분산 학습 안정성에 초점을 맞춘 기술 보고서이다. 따라서 특정 RL 알고리즘(예: PPO, GRPO, DPO)의 손실 함수 수식을 새로 제안하기보다는, **사전학습 및 지속 사전학습(CPT)의 완전한 학습 레시피**, **데이터/연산 예산 분배**, 그리고 **사후학습(Post-training / RL) 단계에서 발생한 중대한 아키텍처적 교훈**을 체계적으로 제시하고 있다.
+
+### 1. 단계별 학습 파이프라인 (Multi-Stage Training Pipeline)
+
+```
++---------------------------------------------------------------------------------------------------+
+|                            Qwen3.8-Flash-Next Multi-Stage Training Pipeline                       |
++---------------------------------------------------------------------------------------------------+
+|                                                                                                   |
+|  [Phase 1: Base Pre-training]                                                                     |
+|  ├── Backbone: 125B Sparse MoE (6B Active) + 51B Host RAM N-gram Tables (Layer 2)                 |
+|  ├── Token Mixing: 3x Gated DeltaNet (GDN) + 1x Global Softmax Attention (Layer-wise Hybrid)       |
+|  ├── Residual: 4-Branch Gated Residual (GR) + GatedNorm Elementwise Read + FP8 Cache              |
+|  ├── Optimizer: Muon (2D Linear Maps) + AdamW (1D / Embed / Head / Router / Low-rank)            |
+|  ├── Batch Size: 25.2M tokens (Constant from Step 0, Batch-size Warmup 완전 배제)                  |
+|  ├── Learning Rate: η = 1.76 × 10^-3 (Peak LR 상향, 완만한 감쇠)                                   |
+|  └── Data Budget: 선행 Qwen3.7-Plus(397B-A17B) 대비 1/3 학습 토큰, 약 1/9 FLOPs로 학습              |
+|                                                                                                   |
+|  [Phase 2: Long-Context Continued Pre-training (CPT) - QSA 2-Stage Recipe]                        |
+|  ├── Stage 1: Indexer Warm-up (인덱서 단독 증류)                                                  |
+|  │    ├── Training Steps: 1,000 steps (256K seqs × 8 / step ≈ 2B tokens)                           |
+|  │    ├── Learning Rate: η = 1.0 × 10^-3 (Backbone Freeze, Indexer Only)                          |
+|  │    └── Objective: L_KL = (1/N) ∑_i D_KL(hat{a}_{i,:} || Softmax(I_{i,:})) (Full Attention 지도) |
+|  └── Stage 2: Sparse Training (백본 + 인덱서 희소 공동 적응)                                      |
+|       ├── Training Steps: 8,000 steps (256K seqs × 96 / step ≈ 200B tokens)                        |
+|       ├── Learning Rate: η = 2.5 × 10^-5 (Backbone + Indexer Joint)                               |
+|       └── Objective: Top-KB 블록 내 재정규화된 교사 분포에 대한 KL 손실 + 언어 모델링 손실        |
+|                                                                                                   |
+|  [Phase 3: Post-Training (SFT / RLHF) Architecture Constraints]                                   |
+|  ├── Strict Constraints Validated: NoPE 배제 (RoPE 필수 유지), Sparse Write 배제 (Full Write 유지) |
+|  └── Alignment Readiness: 4배 LR 무결점 수치 안정성 바탕의 다운스트림 RL/SFT 최적화 환경 보장     |
++---------------------------------------------------------------------------------------------------+
+```
+
+---
+
+### 2. 학습 레시피 및 하이퍼파라미터 총괄 (Comprehensive Training Recipe)
+
+| 하이퍼파라미터 항목 | 적용 설정값 | 설계 근거 및 특징 |
+|---|---|---|
+| **메인 옵티마이저 (Main Optimizer)** | **Muon (Polar Express 8-step NS)** | 2D 선형 변환 행렬 전용 (`μ = 0.95`, `γ = 0.2 · √(max(A, B))`, `eps = 10^-14`). Megatron 융합 텐서를 서브 행렬로 분할하여 독립 직교화 |
+| **보조 옵티마이저 (Aux Optimizer)** | **AdamW** | 1D 벡터, Token Embeddings, LM Head, MoE Router, GR 저랭크 투영(`W_d, W_u, W_w`)에 적용 |
+| **N-gram 테이블 옵티마이저** | **Adam (No Weight Decay)** | 호스트 메모리 상주 테이블 파라미터 전용 최적화 |
+| **배치 크기 (Batch Size)** | **25.2M tokens (Constant)** | 4T 토큰 스케일링 법칙으로 확정. **배치 크기 웜업(Warmup) 제거** (상수 배치 적용으로 18.8% 스텝 및 시간 절감) |
+| **기본 학습률 (Peak Learning Rate)** | **`1.76 × 10^-3`** | Muon + GR 환경에서 최적 LR이 상향됨. `1 / √2` ~ `√2` 범위에서 평탄한 최적 분지(Flat Bowl) 형성 |
+| **CPT 인덱서 학습률** | **`1.0 × 10^-3` (Stage 1) / `2.5 × 10^-5` (Stage 2)** | Stage 1에서 2B 토큰으로 빠른 인덱서 초기화 후, Stage 2에서 200B 토큰으로 저학습률 미세 튜닝 |
+| **그래디언트 클리핑 임계치** | **0.5** | 프로덕션 전체 학습 및 4배 LR 스트레스 테스트에서 클리핑 임계치 초과 0회 기록 |
+| **인위적 텐서 클리핑** | **미사용 (qk-clip, SwiGLU-clip 배제)** | GatedNorm의 곱셈 게이팅이 활성화 이상치(Outliers)를 자율 억제하여 클리핑 없이 완전 무결 수렴 |
+| **레지듀얼 상태 정밀도** | **FP8 Storage** | Gated Residual의 바운디드 게이트 특성을 활용하여 브랜치 상태를 FP8로 캐싱 (메모리 대역폭 50% 절감) |
+| **N-gram 비동기 프리페칭** | **Layer 2 Injection** | Layer 0~1 연산 시간 동안 호스트 RAM → 가속기 HBM PCIe 전송을 완벽 중첩 |
+
+---
+
+### 3. 학습 데이터 및 토큰/연산 예산 (Training Data & Compute Budget)
+
+- **사전학습 데이터 구성 및 토큰 예산**:
+  - **총 학습량 효율성**: 선행 397B-A17B 플래그십(Qwen3.7-Plus) 대비 **1/3 수준의 학습 토큰**만으로 학습되었으며, 활성 파라미터 6B와 결합하여 **총 학습 FLOPs를 약 1/9(89% 절감)** 수준으로 단축.
+  - **절제 실험 기준 (TPP Budget)**: 아키텍처 및 하이퍼파라미터 절제 실험 전반에 활성 파라미터당 300 토큰(**300 TPP**) 기준을 엄격히 적용하여 공정 비교.
+  - **대규모 스케일링 검증**: 20레이어 10.8B-A0.89B 모델 대상 **4T 토큰 예산**으로 배치 스케일링 검증, 48레이어 156B-A7B 모델 대상 **419B 토큰 예산**으로 학습률 분지 검증.
+- **초장문 CPT 데이터 (256K Context Packed Data)**:
+  - 지속 사전학습(CPT) 단계에서는 256K 토큰 길이로 패킹된 초장문 시퀀스 데이터셋 투입.
+  - Stage 1: 256K 시퀀스 8개/스텝 (스텝당 2M 토큰, 총 2B 토큰).
+  - Stage 2: 256K 시퀀스 96개/스텝 (스텝당 25M 토큰, 총 200B 토큰).
+- **데이터 도메인 커버리지**:
+  - 다국어(English, Chinese, Arabic, Russian 등 INCLUDE/MMMLU 벤치마크), 수학/과학(MATH, GSM8K, GPQA, SuperGPQA), 코드(EvalPlus, MultiPL-E 8개 언어, SWEBench-Pretrain)를 포괄하는 대규모 고품질 코퍼스.
+
+---
+
+### 4. 사후 학습 (Post-training) 및 강화학습 (RL) 관점의 분석 및 발견
+
+본 보고서는 Base 모델의 연구 결과이지만, 저자들은 **사전학습 지표(Pre-training Loss)만으로는 감지할 수 없고 사후 학습(SFT / RLHF)을 거쳐야만 드러나는 2가지 치명적 아키텍처 실패 사례**를 공개하며 포스트 트레이닝 관점의 핵심 설계 원칙을 제시하였다:
+
+#### 4.1 실패 사례 1: 희소 쓰기(Sparse Writes)의 사후학습 품질 붕괴
+- **시도**: 추론 시 메모리 트래픽을 줄이기 위해 각 블록이 4개 레지듀얼 브랜치 중 게이트 값이 가장 높은 상위 2개 브랜치에만 쓰는 '희소 쓰기'를 도입.
+- **사전학습 지표**: 사전학습 손실(Loss) 및 기본 벤치마크에서는 성능 저하가 전혀 관찰되지 않음.
+- **사후학습(RL/SFT) 결과**: 사후 학습을 진행하자 모델의 복합 추론 및 생성 품질이 급격히 붕괴(Degrade)됨.
+- **결론 및 교훈**: 사전학습 메트릭의 무해함에 속아 희소 쓰기를 채택했다면 프로덕션 모델이 훼손되었을 것임. 최종 모델에서는 4개 브랜치 전수 쓰기(Full Write)를 유지함.
+
+#### 4.2 실패 사례 2: NoPE(위치 임베딩 제거)의 무한 루프 생성(Endless Generation)
+- **시도**: RoPE를 제거하고 위치 임베딩이 없는 NoPE(No Positional Encoding) 구조를 글로벌 어텐션에 적용.
+- **사전학습 지표**: 사전학습 수렴 궤적 및 손실에서 RoPE와 NoPE 간에 사실상 차이가 없음.
+- **사후학습(RL/SFT) 결과**: 사후 학습 이후 NoPE 모델은 문장이 끝나지 않고 무한정 토큰을 반복 생성하는 **Endless Generation(종료 실패)** 비율이 치명적으로 증가함.
+- **결론 및 교훈**: 글로벌 어텐션에 RoPE를 반드시 유지해야 생성 종료 조건 및 구조적 위치 의존성이 안정화됨.
+
+#### 4.3 사후학습 품질 예측을 위한 '중간 척도 탐침(Proxy Probe)'의 필요성
+- 저자들은 거대 모델 개발의 가장 큰 병목으로 **"사후 학습(Post-training / RL)의 최종 순위를 사전학습 중간에 저렴하게 예측할 수 있는 평가 처리량(Evaluation Throughput)"**을 지목함.
+- 향후 과제로 전체 RL 파이프라인을 다 돌리지 않고도 아키텍처 변경이 사후 정렬(Alignment)에 미치는 영향을 조기에 검증할 수 있는 가벼운 프록시 탐침 개발을 제안함.
+
 ## Experiments & Results
 
 ### 1. Benchmark Datasets
