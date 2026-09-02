@@ -43,3 +43,6 @@
 [submodule "source/git/On-Policy-Self-Adaptation_DripNowhy"]
 	path = source/git/On-Policy-Self-Adaptation_DripNowhy
 	url = https://github.com/DripNowhy/On-Policy-Self-Adaptation.git
+[submodule "source/git/Safin-1_AI45Lab"]
+	path = source/git/Safin-1_AI45Lab
+	url = https://github.com/AI45Lab/Safin-1.git
