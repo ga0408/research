@@ -46,3 +46,6 @@
 [submodule "source/git/Safin-1_AI45Lab"]
 	path = source/git/Safin-1_AI45Lab
 	url = https://github.com/AI45Lab/Safin-1.git
+[submodule "source/git/Dream-RSI_zhengkid"]
+	path = source/git/Dream-RSI_zhengkid
+	url = https://github.com/zhengkid/Dream-RSI.git
