@@ -2,6 +2,30 @@
 
 > 출처: [분석 문서](../../report/[paper][git]_Memora_A_Harmonic_Memory_Representation_Balancing_Abstraction_and_Specificity_2026_ICML.md) / 원본: [arXiv:2602.03315](https://arxiv.org/abs/2602.03315)
 
+## Motivation & Problem Formulation (§1, §2)
+
+### Agent Statelessness and the Need for Structured Experience (§1)
+- **현행 LLM 에이전트의 근본 한계**: 순간적인 계획 수립·도구 활용·원자적 추론에는 능숙하나, 본질적으로 **무상태(stateless)**로 동작하여 반복되는 작업과 사용자 의도를 고립된 단일 사건으로 취급함.
+- **경험 재사용 부재의 대가**: 축적된 경험을 체계적으로 구조화·추상화하여 재사용하는 원칙적 메커니즘이 없으면, 에이전트는 이미 도출했던 계획을 매번 처음부터 다시 유도(re-derive plans)하고 중복된 추론을 반복(reproduce redundant reasoning)하여 시스템 취약성과 토큰 비용 급증을 초래함 (장기 복합 워크플로의 핵심 병목).
+
+### The Tension Between Abstraction and Specificity (§1, §2)
+에이전트 메모리를 스케일링하기 위해서는 **추상화(Abstraction)**와 **구체성(Specificity)** 간의 상충 관계(trade-off / tension)를 반드시 해결해야 하나, 기존 기법들은 두 극단 중 하나로 붕괴(collapse)됨:
+
+1. **Specificity 편향 (구체성 치중)**:
+   - *접근법*: 원본 상호작용 로그/문서 청크 저장 (Flat RAG), 원자적 사실 추출 (Mem0, Nemori 등).
+   - *문제점*: **메모리 파편화(Fragmentation)**와 **비구조적 노이즈(Unstructured noise)**. 서사적 맥락(narrative context)이 박탈되어 장기 태스크의 종속성을 파악하지 못하며, 검색 시 무관한 사실 조각들이 범람(deluge of irrelevant facts)하여 모델을 압도함.
+2. **Abstraction 편향 (추상화 치중)**:
+   - *접근법*: 고수준 요약(coarse summarization)으로 과거 사건 압축 (MemoryBank 등).
+   - *문제점*: 과도한 압축으로 인해 구체적 제약 조건, 엣지 케이스, 수치 데이터 등 **태스크 수행에 결정적인 미세 맥락(task-critical nuances)**이 증발함. 결국 행동 불가능한 모호한 요약(vague summary lacking actionable utility)만 남아 정밀 실행에 실패함.
+3. **Representational Gap (표현 격차)**:
+   - 고수준 개념과 저수준 세부사항을 연결하는 구조적 고리가 결여되어, 에이전트가 자신의 과거 메모리 저장소를 효과적으로 내비게이션(navigate)하지 못하는 검색 마비 발생.
+
+### The Harmonic Memory Paradigm (§1)
+- **해법**: 구체적 내용물(concrete content) 위에 **이중 계층 내비게이션 스캐폴딩(dual-layered navigational scaffolding)**을 구축하여 추상화와 구체성의 구조적 균형 달성.
+- **핵심 분리 (Decoupling)**:
+  - *저장되는 내용 (What is stored)*: 구체적인 Memory Value에 원본 세부사항을 손실 없이 온전히 보존.
+  - *접근되는 방식 (How it is accessed)*: Primary Abstraction(고수준 일관된 Identity 및 점진적 병합 컨테이너)과 Cue Anchors(다각적 맥락 진입점 및 다대다 암묵적 그래프)가 검색 신호와 관계 탐색을 전담.
+
 ## Memory Construction (§3)
 
 ### Problem Formulation (§3.1)
