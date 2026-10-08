@@ -6,7 +6,12 @@
 
 Microsoft Research의 agent memory 프레임워크로, 대화와 문서에서 메모리를 자동으로 추출·저장·검색하는 전체 lifecycle를 제공한다. ICML 2026에 발표되었으며, LoCoMo와 LongMemEval 벤치마크에서 새로운 SOTA를 달성했다.
 
-**원본**: git → [github.com/microsoft/Memora](https://github.com/microsoft/Memora.git) / paper → [arXiv:2602.03315](https://arxiv.org/abs/2602.03315) (ICML 2026)
+**원본**: paper → [arXiv:2602.03315](https://arxiv.org/abs/2602.03315) (ICML 2026) / git → [github.com/microsoft/Memora](https://github.com/microsoft/Memora.git)
+
+### 시스템 아키텍처 개요
+
+![Figure 1: Memora Overview Architecture](../source/paper/figures/memora_fig1_overview.png)
+*Figure 1: Memora 아키텍처 개요. Raw Data(대화/문서)를 의미 단위로 분할(Segmentation)하고 에피소딕 메모리를 구성한 후, 구체적 사실(Memory Value) 위에 개념적 정체성을 정의하는 Primary Abstraction과 다각적 접근점인 Cue Anchors를 구축하여 안정적 추상화와 풍부한 구체성의 균형을 달성한다. 검색 시에는 정책 기반 에이전트(Policy Retriever)가 이 구조를 순회하며 다단계 추론을 수행한다.*
 
 ### 핵심 설계: Abstraction과 Specificity를 균형잡은 Harmonic Memory Representation
 
@@ -30,11 +35,229 @@ Memora는 구체적 내용물(concrete content) 위에 구조적 스캐폴딩을
 2. **메모리 파편화 방지**: 새 사실 유입 시 LLM이 기존 메모리와 동일 개념인지 판단해 단일 entry로 점진적 병합(consolidation)한다.
 3. **구조적 검색**: cue anchor의 다대다 연결을 통해 Policy retriever가 frontier를 확장하며 multi-hop 의존성을 포착한다 (RAG와 KG를 특수 케이스로 통합, Theorem D.1-3).
 
-> 본문은 code 구현과 paper 이론을 대응시켜 **(1) 메모리 추출 방법**과 **(2) 메모리 검색 방법**을 중심으로 정리한다. 개별 코드 스니펫·논문 발췌가 필요하면 문서 말미 [Appendix A](#appendix-a-git-분석-정리-코드-구현)·[Appendix B](#appendix-b-paper-분석-정리-이론)를 참조.
+> 본 문서는 **(1) Paper 이론 및 알고리즘 분석**을 먼저 다룬 후, **(2) Git 코드 구현 및 파이프라인 분석**을 상세히 전개한다.
 
 ---
 
-## 0. 전체 구조와 LLM 호출 지점
+## 1. Paper 분석: 이론, 알고리즘 및 벤치마크
+
+> 상세 논문 발췌 → [paper 발췌](../source/paper/Memora_A_Harmonic_Memory_Representation_Balancing_Abstraction_and_Specificity_2026_ICML.md) / [arXiv:2602.03315](https://arxiv.org/abs/2602.03315)
+
+### 1.1 문제 정식화 및 설계 원칙 (§3.1)
+
+메모리 관리를 구조화된 store의 유지 및 질의 문제로 정식화:
+
+```
+Fm: D → M          (memory construction function: raw data → structured memory set)
+Q(q, M) → Mq       (retrieval function: query → relevant subset Mq ⊆ M, |Mq| ≪ |M|)
+```
+
+- **핵심 설계 목표**: 검색된 부분집합 `Mq`의 관련성을 극대화하면서 크기와 지연시간을 최소화한다. 고수준 시맨틱 스캐닝(semantic scanning)과 저수준 맥락적 룩업(contextual lookup)을 모두 지원하는 표현이 필수적이다.
+- **핵심 혁신 (Decoupled Representation)**: **"무엇이 저장되는가(what is stored)"**와 **"어떻게 접근되는가(how it is accessed)"**를 분리한다. 메모리 콘텐츠(Memory Value)는 손실 없이 풍부하게 유지하고, 별도의 구조적 레이어(Primary Abstraction + Cue Anchors)가 인덱싱과 탐색 신호를 전담한다.
+
+### 1.2 Harmonic Memory 구축 메커니즘 (§3.3 ~ §3.6)
+
+#### Segmentation (§3.3)
+```
+S(d) = {s1, ..., sk}     # data item d를 semantically coherent segments로 분해
+```
+- 각 세그먼트 `si`가 메모리 구축의 입력 기본 단위가 된다. 단일 세그먼트에서 여러 개의 메모리 엔트리가 도출될 수 있다.
+- 비정형 narrative는 프롬프트 기반 추출, 정형 파일은 구조적 계층(헤더, 문단 등)을 활용한다.
+
+#### Episodic Memory (§3.4)
+```
+ei = E(si)              # 각 segment si에 대해 episodic memory 생성
+```
+- 해당 세그먼트에서 파생된 모든 메모리 엔트리의 공유 서사적 기반(narrative grounding)을 제공한다.
+- 고수준 요약(참여자, 의도, 시간 범위) 또는 원본 텍스트 그대로 보존하는 방식 모두 지원한다.
+- 검색 후 동일한 에피소딕 메모리에 속한 엔트리들을 묶어 서사적 일관성을 복원함으로써 다단계 추론(multi-step reasoning)을 지원한다.
+
+#### Primary Abstraction (§3.5)
+메모리를 안정적인 개념 중심으로 조직하여 무분별한 파편화를 방지한다. 2단계로 진행된다:
+
+1. **추출 (Extraction)**: 새 세그먼트 `s`로부터 후보 메모리 엔트리 생성
+```
+Fa(s) = {mi}^N_{i=1},   mi = (ai, vi)
+# ai: primary abstraction (메모리의 근본적 정체성, 1:1 요약)
+# vi: memory value (구체적 세부 사실, 비인덱싱)
+```
+
+2. **통합 (Consolidation)**: 후보 엔트리를 기존 메모리 저장소 `M`에 점진적으로 병합 (Create-or-Update Rule)
+- top-k 유사 기존 엔트리 검색: `R(ai) = TopK_{m∈M} sim(ai, am; k)`
+- 유사도 임계값 `γ`로 필터링: `U(ai) = {m ∈ R(ai) | sim(ai, am) ≥ γ}`
+- LLM 기반 판별 함수 `J`가 동일 개념인지 결정: `m⋆(ai) = J(ai, U(ai))`
+- 생성-또는-갱신 규칙:
+```
+mi = { Update(m⋆(ai), ai, vi),  m⋆(ai) ≠ ∅   # 기존 엔트리에 vi 병합, 필요시 abstraction 갱신
+       Create(ai, vi),          m⋆(ai) = ∅ }  # 신규 엔트리 생성
+```
+이를 통해 각 엔트리가 단일 primary abstraction에 앵커링되고, 의미적으로 정렬된 새 정보가 점진적으로 통합되어 메모리 파편화를 차단한다.
+
+#### Cue Anchors (§3.6)
+Primary abstraction이 의도적으로 거시적이므로, 미세한 맥락적 접근을 위한 시맨틱 훅으로 cue anchor를 추가한다.
+```
+Fc(ai, vi) = {cij}^{|Ci|}_{j=1},   cij ∈ Ci
+```
+- 형식: **`[Main Entity/Topic] + [Key Aspect]`** (2~4어 짧은 구문)
+- **다대다(many-to-many) 비배타적 연결**: 하나의 메모리에 복수의 cue가 연결될 수 있고, 동일한 cue가 여러 메모리에 공유된다.
+- 엔트리 삭제나 병합 시 연결 고리가 모두 끊긴 cue는 자동 소멸하여 저장소가 컴팩트하게 유지된다.
+
+#### Implicit Memory Graph
+Primary abstraction(1:1)과 Cue anchor(다대다)의 결합은 **명시적 엣지 정의 없이도 암묵적 메모리 그래프(implicit memory graph)**를 형성한다. 동일한 cue를 공유하거나 추상화 레벨에서 연관된 엔트리들이 상호 연결되어, 검색 시 단순 유사도를 넘어 구조적 순회(frontier expansion)를 가능하게 한다.
+
+### 1.3 정책 기반 순차 검색 (Policy-Guided Sequential Retrieval, §4)
+
+#### Retrieval as Markov Decision Process (§4.1)
+정적 시맨틱 검색은 복잡한 다단계 의존성을 포착하지 못한다. Memora는 검색 과정을 **MDP(Markov Decision Process)**로 정식화한다:
+
+- **State (상태, step t)**:
+```
+st = (qt, Wt, Ft, bt)
+# qt: 현재 쿼리 (REFINE으로 갱신 가능)
+# Wt: Working Set (현재까지 수집된 메모리 집합, W0 = Mq0)
+# Ft: Frontier (다음에 확장 가능한 candidate 메모리 집합)
+# bt: 남은 예산 (탐색 비용 제약, b0 = B)
+```
+
+- **Action Space (행동 공간)**:
+```
+At = {REFINE(q'), EXPAND(me), STOP}
+# REFINE(q'): 쿼리를 q'로 재수립하고 새로운 시맨틱 검색 수행
+# EXPAND(me): Frontier에서 me ∈ Ft를 선택하여 Working Set에 추가 (me의 cue anchor를 통해 frontier 재계산)
+# STOP: 검색 종료, 현재 Working Set Wt 반환
+```
+
+- **Transition (전이)**:
+```
+Wt+1 = { Wt ∪ {me},   at = EXPAND(me)
+         Wt ∪ Mq',    at = REFINE(q')
+         Wt,          at = STOP }
+Ft+1 = UpdateFrontier(Ft, at, M)
+bt+1 = bt − Cost(at)
+```
+
+#### Algorithm 1: Sequential Retrieval Flow
+```
+Algorithm 1: Policy-Guided Sequential Retrieval
+Input: query q0, memory store M, budget B, policy πθ
+Output: retrieved working set WT
+
+1: Mq0 ← SemanticSearch(q0, M)
+2: W0 ← Mq0, F0 ← ExtractFrontier(W0, M), b0 ← B, t ← 0
+3: while bt > 0 do
+4:     at ~ πθ(· | st)
+5:     if at = STOP then break
+6:     st+1 ← Step(st, at, M)
+7:     t ← t + 1
+8: return Wt
+```
+
+#### GRPO 강화학습 정책 훈련 (§4.2, Appendix C)
+Group Relative Policy Optimization (GRPO)으로 retriever 정책 `πθ`를 파인튜닝:
+- 쿼리 `q`와 정답 `a`에 대해 `G`개의 탐색 trajectory를 샘플링: `τ^(1), ..., τ^(G) ~ πθ(· | s0)`
+- 각 trajectory의 Working Set `WG`에 대해 종합 보상 점수 산출:
+```
+J(τ) = w1 · Groundedness(WG, a) − w2 · Redundancy(WG) − w3 · Cost(τ)
+```
+- Group-relative advantage 계산:
+```
+Ã(i) = J(τ^(i)) − mean({J(τ^(j))}_{j=1}^G)
+```
+- PPO-clip objective를 통해 정책 파라미터 `θ`를 업데이트한다.
+
+### 1.4 통합 이론: RAG 및 Knowledge Graph의 일반화 (Appendix D)
+Memora의 Harmonic 표현 구조는 기존 메모리 패러다임들을 수학적 특수 케이스로 완벽히 포함한다:
+
+- **Theorem D.1 (Flat RAG as Special Case)**:
+  - Traversal depth L=0, cue anchors 비활성화, 단일 query 후 STOP.
+  - Memora는 문서를 청크 단위로 검색하는 표준 Flat RAG와 정확히 일치한다.
+- **Theorem D.2 (Implicit Knowledge Graph as Special Case)**:
+  - Cue anchor를 entity로 간주하고 유사도 기반 탐색을 수행.
+  - Memora의 frontier 확장은 implicit KG의 multi-hop neighbor traversal과 수학적으로 동등하다.
+- **Theorem D.3 (Explicit Knowledge Graph as Special Case)**:
+  - Cue anchor를 (entity, relation) 튜플로 정의하고 직접 연결.
+  - Memora의 policy retrieval은 explicit KG 상의 path-finding 순회 알고리즘을 정확히 재현한다.
+
+### 1.5 벤치마크 평가 및 실험 분석 (§5)
+
+#### 1.5.1 메인 결과 — LoCoMo (Table 1, LLM-as-Judge)
+
+| Method | Multi-hop | Temporal | Open-domain | Single-hop | Overall |
+|---|---|---|---|---|---|
+| Full Context | 0.766 | 0.819 | 0.500 | 0.885 | 0.825 |
+| RAG | 0.557 | 0.548 | 0.458 | 0.710 | 0.633 |
+| HippoRAG | 0.390 | 0.224 | 0.510 | 0.587 | 0.471 |
+| Mem0 | 0.624 | 0.660 | 0.500 | 0.677 | 0.653 |
+| LangMem | 0.710 | 0.508 | 0.590 | 0.845 | 0.734 |
+| Nemori | 0.751 | 0.776 | 0.510 | 0.849 | 0.794 |
+| **Memora (S)** | 0.784 | 0.851 | 0.594 | 0.900 | 0.849 |
+| **Memora (P)** | 0.787 | 0.866 | 0.594 | 0.918 | **0.863** |
+
+→ Full Context(0.825)마저 능가 → "context noise" 필터링으로 curated memory가 brute-force reconstruction보다 정확.
+
+#### 1.5.2 메인 결과 — LongMemEval (Table 2)
+
+| Method | Context length | Avg Accuracy |
+|---|---|---|
+| Full Context | 115k | 65.6% |
+| Nemori | 3.7-4.8k | 74.6% |
+| **Memora (S)** | 2.1k | 83.8% |
+| **Memora (P)** | 2.9k | **87.4%** |
+
+#### 1.5.3 Component Build-up Ablation (Table 3, LoCoMo Overall)
+
+| Configuration | Score | 증분 |
+|---|---|---|
+| w/o abstraction (= Mem0) | 0.653 | — |
+| + primary abstraction (no update) | 0.795 | +0.142 |
+| + update | 0.801 | +0.006 |
+| + semantic retriever (full) | 0.849 | +0.048 |
+| + policy retriever (full) | **0.863** | +0.014 |
+
+→ abstraction layer만 추가해도 +0.142. abstraction 제거 시 Mem0로 퇴화.
+
+#### 1.5.4 Memory Granularity Ablation (Table 4, LLM score + Avg Tokens)
+
+| Retriever | Memory Type | Score | Avg Tokens |
+|---|---|---|---|
+| **Policy** | Episodic (Segment) + Factual | **0.863** | 1,853 |
+| Policy | Factual only | 0.833 | — |
+| **Semantic** | Episodic (Segment) + Factual | 0.849 | 8,499 |
+| Semantic | Factual only | 0.833 | — |
+
+핵심:
+- **Policy가 cue anchor 없으면 semantic과 동일** → policy 이점은 cue anchor 순회能力에서 발생
+- **Token 효율**: Policy(1,853)가 Semantic(8,499) 대비 **78% 적은 토큰**으로 더 높은 성능
+- Episodic (Segment) > Extracted > Factual only — raw segment가 가장 풍부한 context
+
+#### 1.5.5 GRPO 결과 (Figure 2, Qwen2.5-1.5B, LoCoMo test split)
+
+| Model | Overall |
+|---|---|
+| Qwen 2.5 1.5B (Base) | 0.686 |
+| Qwen 2.5 1.5B (GRPO) | **0.816** |
+| GPT-4.1-mini (Policy, upper bound) | 0.863 |
+
+→ GRPO 훈련으로 +0.130. 로컬 소형 모델로 0.816 달성 → 비용 절감 with 경쟁력.
+
+#### 1.5.6 효율성 지표 (Table 5-7)
+
+| 지표 | Semantic | Policy | 비고 |
+|---|---|---|---|
+| Search latency (mean) | 0.235s | 1.062s | Policy가 4-5배 느림 (평균 3.45 steps) |
+| Construction time/convo | 1,322s (Mem0: 1,351s) | 동일 | Mem0와 비슷, offset 최적화 시 740s |
+| Memory entries/convo | 344 | 344 | Mem0(651) 대비 절반 |
+| Token vs full-context | — | — | **98% 절감** |
+
+**작은 construction model 실험** (Table 7): gpt-5.4-nano + Policy(0.851) ≈ gpt-4.1-mini + Semantic(0.849) → policy retriever가 construction 품질을 보완.
+
+---
+
+## 2. Git 코드 구현 분석: 아키텍처 및 파이프라인
+
+> 상세 코드 스니펫 → [extraction snippet](../source/git/snippets/Memora_2026_ICML__memory_extraction.md) / [retrieval snippet](../source/git/snippets/Memora_2026_ICML__memory_retrieval.md) / [GitHub 저장소](https://github.com/microsoft/Memora.git)
+
+### 2.0 전체 시스템 구조와 LLM 호출 지점
 
 `🔥` = LLM 호출 지점
 
@@ -157,11 +380,13 @@ Memora는 구체적 내용물(concrete content) 위에 구조적 스캐폴딩을
 
 ---
 
-## 1. 메모리 추출 방법 (Memory Extraction)
+
+
+### 2.1 메모리 추출 파이프라인 구현 (`MemoryBuilder`)
 
 > paper의 memory construction `Fm: D→M` (§3)과 code의 `MemoryBuilder.build()` 구현을 대응 정리. 상세 코드·프롬프트 → [extraction snippet](../source/git/snippets/Memora_2026_ICML__memory_extraction.md) / 논문 발췌 → [paper 발췌](../source/paper/Memora_A_Harmonic_Memory_Representation_Balancing_Abstraction_and_Specificity_2026_ICML.md)
 
-### 1.0 추출 파이프라인 호출 스택
+#### 2.1.0 추출 파이프라인 호출 스택
 
 `🔥` = LLM 호출 지점
 
@@ -209,7 +434,7 @@ MemoraClient.add(text, type="chat")
                      should_update=False → 신규 메모리로 추가
 ```
 
-### 1.1 paper 이론 → code 대응
+#### 2.1.1 paper 이론 → code 대응
 
 ```
 [Paper 정식화]                          [Code 구현]
@@ -235,7 +460,7 @@ Fm: D → M (construction function)       MemoraClient.add() → MemoryBuilder.b
       Fc(ai,vi)={cij}, many-to-many          🔥 LLM #3 (단일 배치, [Entity]+[Key Aspect], 0-3개/메모리)
 ```
 
-### 1.2 Harmonic Memory Representation — 3요소
+#### 2.1.2 Harmonic Memory Representation — 3요소
 
 논문의 핵심 설계("what is stored"와 "how it is accessed"의 decouple)가 code `MemoryEntry` 구조로 직접 구현:
 
@@ -317,7 +542,7 @@ Primary abstraction(`ai`, index)만으로는 너무 coarse해서 놓치는 측�
 - 검색은 factual memory만 반환한다. 각 factual은 `episodic_memory_ids` 필드로 부모 episodic을 참조하고 있지만, `MemoraClient.query()`가 이를 따라가서 관련 메모리를 함께 가져오지는 않는다. 대신 벤치마크 평가용 app 코드(`app/locomo/`, `app/longmemeval/`)가 검색 후 이 필드를 읽어 같은 episodic을 참조하는 다른 factual들과 해당 episodic memory의 원문 대화를 함께 LLM context에 제공한다. 즉 LLM 관점에서는 하나의 factual만 검색에 걸려도 같은 대화 맥락의 다른 사실들과 원문이 함께 제공되는데, 이것은 벤치마크 평가 시 답변 품질을 높이기 위해 app 레이어에서 추가한 후처리이지 Memora 핵심 라이브러리의 검색 기능은 아니다. 사용자가 `MemoraClient.query()`를 호출하면 factual memory 리스트만 반환된다.
 - `use_segments_as_episodic=True`면 원본 segment text 그대로, `False`면 LLM 요약
 
-### 1.3 LLM 프롬프트 — Factual Memory 추출 (`PROMPT_BUILD_MEMORY`)
+#### 2.1.3 LLM 프롬프트 — Factual Memory 추출 (`PROMPT_BUILD_MEMORY`)
 
 > 프롬프트 전문 → [extraction snippet](../source/git/snippets/Memora_2026_ICML__memory_extraction.md#24-step-2-factual-memory-추출--llm-호출)
 
@@ -328,7 +553,7 @@ Primary abstraction(`ai`, index)만으로는 너무 coarse해서 놓치는 측�
 - 이미지: 이미지만 설명하는 entry 금지, 관련 memory에 자연스럽게 통합
 - 구조화 응답: `MemoryOutputs{entries:[MemoryOutput{memory_type, index, value}]}`
 
-### 1.4 LLM 프롬프트 — Cue Anchor 생성 (`PROMPT_CUE_GENERATION`)
+#### 2.1.4 LLM 프롬프트 — Cue Anchor 생성 (`PROMPT_CUE_GENERATION`)
 
 > 프롬프트 전문 → [extraction snippet](../source/git/snippets/Memora_2026_ICML__memory_extraction.md#25-step-2-후-cue-anchor-배치-생성)
 
@@ -340,7 +565,7 @@ Primary abstraction(`ai`, index)만으로는 너무 coarse해서 놓치는 측�
 - primary index와 중복 금지
 - 구조화 응답: `BatchCueIndices{results:[MemoryCueIndices{memory_index, cue_indices}]}`
 
-### 1.5 Intelligent Upsert = paper의 Consolidation (§3.5)
+#### 2.1.5 Intelligent Upsert = paper의 Consolidation (§3.5)
 
 논문의 create-or-update rule (식 2-5)이 code `upsert_memory_entry()`로 구현되는 과정을 단계별로 추적.
 
@@ -564,7 +789,7 @@ class MemoryUpdateDecision(BaseModel):
 # duplicate: 동일 index로 스킵된 수
 ```
 
-### 1.6 Segment 분할 기준
+#### 2.1.6 Segment 분할 기준
 
 paper는 두 가지 분할 방식을 정의:
 
@@ -577,11 +802,13 @@ paper의 segmentation 프롬프트는 존재하나 code `ChatMemoryBuilder`가 �
 
 ---
 
-## 2. 메모리 검색 방법 (Memory Retrieval)
+
+
+##### 2.2.2.2 메모리 검색 파이프라인 구현 (3종 Retriever)
 
 > paper의 policy-guided retrieval MDP (§4)와 code의 3종 retriever를 대응 정리. 상세 코드·프롬프트 → [retrieval snippet](../source/git/snippets/Memora_2026_ICML__memory_retrieval.md) / 논문 발췌 → [paper 발췌](../source/paper/Memora_A_Harmonic_Memory_Representation_Balancing_Abstraction_and_Specificity_2026_ICML.md)
 
-### 2.0 검색 파이프라인 호출 스택
+##### 2.2.2.0 검색 파이프라인 호출 스택
 
 `🔥` = LLM 호출 지점
 
@@ -617,7 +844,7 @@ MemoraClient.advance_query(query_type=...)        # 전략별
        └─ _call_policy()                         🔥 LLM #8' (로컬 Qwen, POLICY_SYSTEM_MESSAGE, 최대 5회)
 ```
 
-### 2.1 검색 정식화: paper MDP → code 3종 전략
+##### 2.2.2.1 검색 정식화: paper MDP → code 3종 전략
 
 논문은 검색을 MDP로 정식화하고 policy πθ의 구현을 "prompt-guided LLM ~ fully trained model" 스펙트럼으로 정의. Code가 이를 3종 retriever로 직접 구현:
 
@@ -629,7 +856,7 @@ MemoraClient.advance_query(query_type=...)        # 전략별
 
 `MemoraClient.advance_query(query_type="semantic"|"prompt"|"grpo")`가 전략을 선택한다.
 
-### 2.2 SemanticRetriever — `AgentMemory.query()` 5단계
+##### 2.2.2.2 SemanticRetriever — `AgentMemory.query()` 5단계
 
 `SemanticRetriever`는 `AgentMemory.query()`의 thin wrapper로, 별도의 정책 없이 단일 검색을 수행한다. 논문의 Theorem D.1에서 flat RAG는 Memora의 특수 케이스(traversal depth L=0)로 증명되는데, SemanticRetriever가 이에 대응한다. 다만 code는 논문에 없는 실용적 강화를 추가한다. 전체 흐름을 예시로 따라가본다.
 
@@ -745,7 +972,7 @@ RRF_score(d) = Σ weight_i × 1/(k + rank_i),  k=60
 
 2점 이상만 유지하고, LLM score 내림차순 → search score 내림차순으로 정렬한다.
 
-### 2.3 PromptedPolicyRetriever — Iterative MDP (`retriever/prompted_policy_retriever.py:96`)
+##### 2.2.2.3 PromptedPolicyRetriever — Iterative MDP (`retriever/prompted_policy_retriever.py:96`)
 
 논문의 `st=(qt, Wt, Ft, bt)`와 actions(REFINE/EXPAND/STOP)가 code에서 정확히 대응:
 
@@ -790,7 +1017,7 @@ retrieve(query):
 - **relative answer 탐지**: W가 포인터만 제공하면 RE_QUERY로 구체값 추적 (예: "Mike went to same college as Sarah" → RE_QUERY "Where did Sarah go to college?")
 - JSON 출력: `{action, reason, confidence, frontier_ids, new_query}`
 
-### 2.4 MemoryExpander = paper의 Frontier Update (`core/memory_expander.py:16`)
+##### 2.2.2.4 MemoryExpander = paper의 Frontier Update (`core/memory_expander.py:16`)
 
 논문의 `Ft+1 = UpdateFrontier(Ft, ΔFt)` (식 9)가 code `MemoryExpander.build_frontier()`로 구현:
 
@@ -822,7 +1049,7 @@ build_frontier(frontier, memories):
 - W 메모리의 cue anchors → linked primary memory를 frontier에 추가 (paper의 "candidate memories explicitly linked to items in Wt")
 - **relaxed frontier** (code만의 확장): 유사 cue를 병렬 검색 — paper의 implicit KG traversal(유사도 기반 L-hop, Theorem D.2)과 유사
 
-### 2.5 GRPO — PromptedPolicyRetriever의 정책을 학습시키는 실험적 접근
+##### 2.2.2.5 GRPO — PromptedPolicyRetriever의 정책을 학습시키는 실험적 접근
 
 GRPO는 `PromptedPolicyRetriever`의 검색 루프를 그대로 사용하되, 정책 결정을 내리는 LLM을 GPT-4.1-mini에서 로컬 Qwen으로 교체하고, 그 Qwen을 GRPO(Group Relative Policy Optimization)로 파인튜닝하는 실험적 접근이다. 목표는 비용이 큰 정책 결정 LLM 호출(최대 5회)을 로컬 소형 모델로 대체하여 비용과 지연시간을 줄이는 것이다.
 
@@ -902,7 +1129,7 @@ GRPO 학습으로 +0.130 향상. GPT-4.1-mini에는 못 미치지만, 로컬 소
 
 > **참고**: GRPO는 실험적(experimental) 기능으로, torch와 peft 의존성이 추가로 필요하다. 기본 아키텍처는 단일 GPT 모델을 사용하며, GRPO는 정책 결정만 로컬 모델로 교체하는 옵션이다.
 
-### 2.6 검색 컴포넌트 매핑 (code ↔ paper)
+##### 2.2.2.6 검색 컴포넌트 매핑 (code ↔ paper)
 
 | Code 컴포넌트 | 파일 | Paper 대응 |
 |---|---|---|
@@ -920,84 +1147,7 @@ GRPO 학습으로 +0.130 향상. GPT-4.1-mini에는 못 미치지만, 로컬 소
 
 ---
 
-## 3. 벤치마크 성능 (§5)
-
-> 상세 발췌 → [paper 발췌](../source/paper/Memora_A_Harmonic_Memory_Representation_Balancing_Abstraction_and_Specificity_2026_ICML.md)
-
-### 3.1 메인 결과 — LoCoMo (Table 1, LLM-as-Judge)
-
-| Method | Multi-hop | Temporal | Open-domain | Single-hop | Overall |
-|---|---|---|---|---|---|
-| Full Context | 0.766 | 0.819 | 0.500 | 0.885 | 0.825 |
-| RAG | 0.557 | 0.548 | 0.458 | 0.710 | 0.633 |
-| HippoRAG | 0.390 | 0.224 | 0.510 | 0.587 | 0.471 |
-| Mem0 | 0.624 | 0.660 | 0.500 | 0.677 | 0.653 |
-| LangMem | 0.710 | 0.508 | 0.590 | 0.845 | 0.734 |
-| Nemori | 0.751 | 0.776 | 0.510 | 0.849 | 0.794 |
-| **Memora (S)** | 0.784 | 0.851 | 0.594 | 0.900 | 0.849 |
-| **Memora (P)** | 0.787 | 0.866 | 0.594 | 0.918 | **0.863** |
-
-→ Full Context(0.825)마저 능가 → "context noise" 필터링으로 curated memory가 brute-force reconstruction보다 정확.
-
-### 3.2 메인 결과 — LongMemEval (Table 2)
-
-| Method | Context length | Avg Accuracy |
-|---|---|---|
-| Full Context | 115k | 65.6% |
-| Nemori | 3.7-4.8k | 74.6% |
-| **Memora (S)** | 2.1k | 83.8% |
-| **Memora (P)** | 2.9k | **87.4%** |
-
-### 3.3 Component Build-up Ablation (Table 3, LoCoMo Overall)
-
-| Configuration | Score | 증분 |
-|---|---|---|
-| w/o abstraction (= Mem0) | 0.653 | — |
-| + primary abstraction (no update) | 0.795 | +0.142 |
-| + update | 0.801 | +0.006 |
-| + semantic retriever (full) | 0.849 | +0.048 |
-| + policy retriever (full) | **0.863** | +0.014 |
-
-→ abstraction layer만 추가해도 +0.142. abstraction 제거 시 Mem0로 퇴화.
-
-### 3.4 Memory Granularity Ablation (Table 4, LLM score + Avg Tokens)
-
-| Retriever | Memory Type | Score | Avg Tokens |
-|---|---|---|---|
-| **Policy** | Episodic (Segment) + Factual | **0.863** | 1,853 |
-| Policy | Factual only | 0.833 | — |
-| **Semantic** | Episodic (Segment) + Factual | 0.849 | 8,499 |
-| Semantic | Factual only | 0.833 | — |
-
-핵심:
-- **Policy가 cue anchor 없으면 semantic과 동일** → policy 이점은 cue anchor 순회能力에서 발생
-- **Token 효율**: Policy(1,853)가 Semantic(8,499) 대비 **78% 적은 토큰**으로 더 높은 성능
-- Episodic (Segment) > Extracted > Factual only — raw segment가 가장 풍부한 context
-
-### 3.5 GRPO 결과 (Figure 2, Qwen2.5-1.5B, LoCoMo test split)
-
-| Model | Overall |
-|---|---|
-| Qwen 2.5 1.5B (Base) | 0.686 |
-| Qwen 2.5 1.5B (GRPO) | **0.816** |
-| GPT-4.1-mini (Policy, upper bound) | 0.863 |
-
-→ GRPO 훈련으로 +0.130. 로컬 소형 모델로 0.816 달성 → 비용 절감 with 경쟁력.
-
-### 3.6 효율성 지표 (Table 5-7)
-
-| 지표 | Semantic | Policy | 비고 |
-|---|---|---|---|
-| Search latency (mean) | 0.235s | 1.062s | Policy가 4-5배 느림 (평균 3.45 steps) |
-| Construction time/convo | 1,322s (Mem0: 1,351s) | 동일 | Mem0와 비슷, offset 최적화 시 740s |
-| Memory entries/convo | 344 | 344 | Mem0(651) 대비 절반 |
-| Token vs full-context | — | — | **98% 절감** |
-
-**작은 construction model 실험** (Table 7): gpt-5.4-nano + Policy(0.851) ≈ gpt-4.1-mini + Semantic(0.849) → policy retriever가 construction 품질을 보완.
-
----
-
-## Analysis
+## 3. 종합 평가 및 분석 (Analysis)
 
 **장점**
 - **Stateless 한계 극복 및 Abstraction-Specificity의 구조적 조화** (paper 핵심): LLM 에이전트의 무상태성을 극복하기 위해, raw chunk/atomic facts(Specificity 편향의 파편화·비구조적 노이즈)나 거친 요약(Abstraction 편향의 핵심 세부정보 소실)이라는 기존의 양극단 딜레마를 극복함. 손실 없는 Memory Value(구체성) 위에 Primary Abstraction과 Cue Anchors라는 이중 계층 내비게이션 스캐폴딩(추상화)을 결합하여 완벽한 구조적 균형을 달성함.
@@ -1019,6 +1169,8 @@ GRPO 학습으로 +0.130 향상. GPT-4.1-mini에는 못 미치지만, 로컬 소
 - cue anchor 다대다 구조는 multi-hop 질의·관련 메모리 집적에 강점. RAG pipeline의 memory layer로 통합 용이.
 - RAG·KG 특수 케이스 증명(Theorem D.1-3)은 기존 시스템 마이그레이션 시 이론적 정당성 제공.
 
+
+
 ## References
 - Paper: [Memora: A Harmonic Memory Representation Balancing Abstraction and Specificity (arXiv:2602.03315)](https://arxiv.org/abs/2602.03315) — ICML 2026
 - Code: [github.com/microsoft/Memora](https://github.com/microsoft/Memora.git)
@@ -1026,163 +1178,3 @@ GRPO 학습으로 +0.130 향상. GPT-4.1-mini에는 못 미치지만, 로컬 소
 - LongMemEval benchmark: [arXiv:2410.10813](https://arxiv.org/abs/2410.10813)
 - GRPO: [DeepSeekMath / Shao et al., 2024](https://arxiv.org/abs/2402.03300)
 
----
-
-## Appendix A. git 분석 정리 (코드 구현)
-
-> 상세 코드 스니펫 → [extraction snippet](../source/git/snippets/Memora_2026_ICML__memory_extraction.md) / [retrieval snippet](../source/git/snippets/Memora_2026_ICML__memory_retrieval.md)
-
-### Architecture
-
-```
-                          MemoraClient (memora_client.py)
-                          ├─ add() / add_file()     ── 추출
-                          ├─ query()                ── 단일 semantic 검색
-                          └─ advance_query()        ── 전략별 검색(semantic/prompt/grpo)
-                                │
-                ┌───────────────┴───────────────────────────────────┐
-                ▼                                                   ▼
-   ┌─────────────────────────────┐               ┌─────────────────────────────────────────┐
-   │  [추출 파이프라인]           │               │  [검색 파이프라인]                        │
-   │  LocalMemoraClient          │               │  Retriever (전략 선택)                   │
-   │  ├─ ProcessorRegistry       │               │  ├─ SemanticRetriever                    │
-   │  │   (PDF/DOCX/MD → Segment)│               │  ├─ PromptedPolicyRetriever (LLM policy) │
-   │  ├─ MemoryBuilderRegistry   │               │  └─ LocalPolicyRetriever   (GRPO Qwen)   │
-   │  │   (chat / doc builder)   │               └──────────────┬──────────────────────────┘
-   │  └─ MemoryBuilder.build()   │                              │
-   │      ├─ episodic mem (opt)  │                              ▼
-   │      ├─ LLM factual 추출    │               ┌─────────────────────────────────────────┐
-   │      ├─ CueIndexGenerator   │               │  AgentMemory (core/memory.py) ★검색엔진  │
-   │      └─ upsert_memory_entry │               │  ├─ QueryGenerator  (LLM query 확장)     │
-   │          (dup/update/new)   │               │  ├─ _query_result   (primary + cue)     │
-   └──────────────┬──────────────┘               │  ├─ _perform_hybrid_search (BM25/kw)    │
-                  │                              │  ├─ _merge_results_with_rrf (가중합산)   │
-                  ▼                              │  ├─ MemoryFilter (LLM 관련성 필터)       │
-   ┌─────────────────────────────┐               │  └─ MemoryExpander (frontier, policy용) │
-   │  AgentMemory (core/memory)  │               └──────────────┬──────────────────────────┘
-   │  ├─ add()  primary + cue 저장│                              │
-   │  └─ LocalMemoryStore        │                              ▼
-   │     (ChromaDB / Redis)      │               ┌─────────────────────────────────────────┐
-   └─────────────────────────────┘               │  LocalMemoryStore (core/local_memory_store)│
-                                                  │  ├─ query()      ChromaDB vector search  │
-   메모리 엔트리 3요소 (harmonic repr):            │  ├─ bm25_search() rank_bm25              │
-   ┌─────────────────────────────────┐            │  └─ keyword_search() substring match     │
-   │ MemoryEntry                     │            └─────────────────────────────────────────┘
-   │  • value     (비인덱싱, 본문)   │
-   │  • index     (primary, 인덱싱) │
-   │  • cue_indices (cue, 인덱싱)   │ ◀── 다대다 linked_memory 링크
-   │  • memory_type: factual/procedural/episodic
-   └─────────────────────────────────┘
-```
-
-### git: 메모리 추출 (코드)
-
-**추출 파이프라인** (`MemoryBuilder.build()`):
-```
-MemoraClient.add(text, type)
-  └─ LocalMemoraClient.add()
-       ├─ Segment(content=text, ...) 생성            # 긴 텍스트 분할은 미구현(TODO)
-       ├─ _get_memory_builder(type)                  # chat → ChatMemoryBuilder, doc → DocumentMemoryBuilder
-       └─ MemoryBuilder.build(content, metadata)
-            ├─ [Step 1] episodic memory 생성 (config: enable_episodic_memory)
-            │    · use_segments_as_episodic=True → 원본 segment 텍스트 그대로 value
-            │    · False → LLM(PROMPT_EPISODIC_MEMORY)로 1-3문장 요약, index: "[EPISODIC] <topic> (segment N)"
-            ├─ [Step 2] factual memory 추출
-            │    · LLM: PROMPT_BUILD_MEMORY (chat) / PROMPT_BUILD_DOCUMENT_MEMORY (doc)
-            │    · → MemoryOutputs{entries:[MemoryOutput{memory_type, index, value}]}
-            │    · cue index 활성화 시 CueIndexGenerator 배치 호출 (메모리당 0-3개)
-            └─ [Step 3] upsert_memory_entry()
-                 ├─ 동일 index 존재 → duplicate (skip)
-                 ├─ 유사 existing 탐색 (semantic, UPDATE_SCORE_THRESHOLD 이상) → LLM이 update/new 결정
-                 └─ add() 또는 update_memory()
-```
-
-**Chat vs Document Builder**:
-
-| | ChatMemoryBuilder | DocumentMemoryBuilder |
-|---|---|---|
-| 프롬프트 | `PROMPT_BUILD_MEMORY` (factual만) | `PROMPT_BUILD_DOCUMENT_MEMORY` (factual + procedural) |
-| procedural memory | ✗ | ✓ (MemSteps + Summary) |
-| episodic memory | ✓ (config 옵션) | ✗ |
-| cue index 생성 | ✓ (배치) | ✓ (배치, 동일 로직) |
-
-**Intelligent Upsert** (`upsert_memory_entry()`): 동일한 index가 이미 있으면 duplicate로 저장하지 않고 skip. 유사한 기존 메모리(`UPDATE_SCORE_THRESHOLD` 이상 top-5)가 있으면 LLM이 `MemoryUpdateDecision`으로 갱신 여부 결정 → 갱신 시 기존 value와 새 value를 병합하고 history 누적, cue 재생성. 갱신하지 않으면 신규 메모리로 추가.
-
-### git: 메모리 검색 (코드)
-
-**3종 검색 전략** (`MemoraClient.advance_query(query_type=...)`):
-
-| 전략 | 클래스 | 정책 결정 | 특징 |
-|---|---|---|---|
-| **Semantic** | `SemanticRetriever` | (정적) | vector 검색 + hybrid(BM25/keyword) + RRF + LLM 필터 |
-| **Prompted** | `PromptedPolicyRetriever` | LLM (GPT) | iterative EXPAND/RE_QUERY/STOP, frontier 확장 |
-| **GRPO** | `LocalPolicyRetriever` | 로컬 Qwen (LoRA) | 동일 루프, 정책만 파인튜닝 모델 |
-
-**SemanticRetriever 흐름** (`AgentMemory.query()`): (1) LLM query 확장 → (2) QueryMode별 이중 검색(PRIMARY_ONLY/CUE_ONLY/BOTH) → (3) hybrid search(BM25/keyword) → (4) RRF 가중 합산(primary 2.0 > cue/hybrid 1.0) → (5) LLM filter
-
-**PromptedPolicyRetriever** (`prompted_policy_retriever.py`): Step 0 INIT_RETRIEVE → Step 1..max_steps 반복. LLM이 Working Set(W)·Frontier(F) 평가 → `{action: EXPAND/RE_QUERY/STOP, frontier_ids, new_query}` JSON 결정. EXPAND가 RE_QUERY보다 저렴하므로 우선.
-
-**MemoryExpander** (`memory_expander.py`): working set 메모리들이 가진 cue index를 따라가서, 연결된 primary 메모리들을 frontier(확장 후보)에 추가. relaxed 모드 시 의미적으로 유사한 cue를 병렬(ThreadPool)로 추가 탐색.
-
-**LocalPolicyRetriever**: Prompted와 동일 루프, 정책 결정만 Qwen2.5-7B+LoRA. GRPO 학습(`/src/memora/rl/`): trajectory 수집 → groundedness/redundancy/cost scoring → group-relative advantage.
-
----
-
-## Appendix B. paper 분석 정리 (이론)
-
-> 상세 발췌 → [paper 발췌](../source/paper/Memora_A_Harmonic_Memory_Representation_Balancing_Abstraction_and_Specificity_2026_ICML.md)
-
-### paper: 문제 정의 및 패러다임 (§1, §2)
-
-- **에이전트의 무상태성(Statelessness) 극복**: LLM은 개별 문제 해결에는 탁월하나 본질적으로 무상태(stateless)이므로, 축적된 경험을 구조화·재사용하지 못하면 계획을 매번 재유도(re-derive plans)하고 중복 추론을 반복하는 심각한 병목이 발생함 (§1).
-- **Abstraction vs Specificity 상충 관계**:
-  - *Specificity 극단 (Flat RAG, Mem0 등)*: 원시 상호작용 및 원자적 사실은 보존되나, 파편화(fragmentation)와 비구조적 노이즈가 심하고 서사 맥락이 상실되어 무관한 사실의 범람(deluge of irrelevant facts)을 유발함.
-  - *Abstraction 극단 (MemoryBank 등)*: 고수준 요약은 효율적이나, 작업에 필수적인 세부사항(task-critical nuances: 제약조건, 수치, 엣지 케이스)이 증발하여 행동 불가능한 모호한 요약(vague summary lacking actionable utility)에 그침.
-  - *표현 격차(Representational Gap)*: 고수준 개념과 저수준 세부사항을 잇는 구조적 연결 고리가 없어 검색 내비게이션이 마비됨.
-- **Harmonic Memory Representation**: 구체적 사실(Memory Value) 위에 이중 계층 내비게이션 스캐폴딩(Primary Abstraction + Cue Anchors)을 얹어 "저장 내용(rich content)"과 "접근 방식(navigational scaffolding)"을 분리(decouple)함으로써 양자의 완벽한 구조적 조화를 구현함.
-
-### paper: 메모리 추출 (이론, §3)
-
-**Problem Formulation** (§3.1): 메모리 관리를 `Fm: D→M` (construction)과 `Q(q,M)→Mq` (retrieval, |Mq|≪|M|)로 정식화. 핵심 혁신: "what is stored"와 "how it is accessed"를 **decouple** — content는 rich하게, 별도 structural layer가 검색 신호 담당.
-
-**Segmentation** (§3.3): `S(d)={s1,...,sk}` — data를 semantically coherent segments로 분해. 비정형은 prompt-based, 정형은 structural hierarchy 활용.
-
-**Episodic Memory** (§3.4): `ei=E(si)` — segment의 narrative grounding. summary 또는 raw text. 검색은 factual memory만 반환하지만, 각 factual이 `episodic_memory_ids`로 부모 episodic을 참조하므로 app 레이어에서 검색 후 같은 episodic을 참조하는 factual들을 묶어 context를 복원할 수 있다.
-
-**Primary Abstraction** (§3.5) — 2단계: extraction + consolidation
-```
-Fa(s) = {mi},  mi = (ai, vi)                    # extraction: candidate (abstraction, value)
-R(ai) = TopK_{m∈M} sim(ai, am; k)               # 유사 기존 entry 검색
-U(ai) = {m ∈ R(ai) | sim(ai,am) ≥ γ}             # threshold 필터
-m⋆(ai) = J(ai, U(ai))                            # LLM이 동일 개념인지 판단
-mi = { Update(m⋆, ai, vi) if m⋆≠∅;  Create(ai,vi) if m⋆=∅ }
-```
-
-**Cue Anchors** (§3.6): `Fc(ai,vi)={cij}` — `[Main Entity]+[Key Aspect]` (2-4어). **non-exclusive, many-to-many**. 같은 cue가 여러 entry에 공유되면서 explicit edge 없이도 implicit memory graph를 형성한다. 메모리 entry가 삭제되거나 병합될 때, 해당 cue와 연결된 primary entry가 하나도 남지 않으면 그 cue entry도 자동으로 삭제되어 cue 집합이 compact하게 유지된다.
-
-### paper: 메모리 검색 (이론, §4)
-
-**Retrieval as MDP** (§4.1) — ★핵심: 정적 semantic search는 multi-hop 의존성 포착 실패 → 검색을 MDP로 정식화.
-```
-State:  st = (qt, Wt, Ft, bt)     # query, working set, frontier, budget
-Actions: REFINE (query 재생성) | EXPAND (frontier→Wt) | STOP
-Transition: Wt+1 = Wt ∪ ΔWt;  Ft+1 = UpdateFrontier;  bt+1 = bt − Cost(at)
-```
-
-**Algorithm 1**: 초기 검색 → 정책 πθ가 action 샘플링 → STOP 또는 budget 소진 시 Wt 반환.
-
-**GRPO 정책 학습** (§4.2, Appendix C): G개 trajectory 샘플링 → trajectory score `J(τ) = w1·Ground − w2·Redund − w3·Cost` → group-relative advantage `Ã(i) = J(τ^(i)) − mean(J)` → 정책 업데이트. KL 정규화 optional.
-
-**Unifying Theory** (Appendix D):
-- **Theorem D.1**: Flat RAG — chunk=entry, abstraction=content, cue=없음, 단일 QUERY 후 STOP → 특수 케이스.
-- **Theorem D.2**: Implicit KG — cue=entity, 유사도 기반 L-hop traversal → 특수 케이스.
-- **Theorem D.3**: Explicit KG — cue=entities+relations, cue–cue traversal이 KG edge mirror → 특수 케이스.
-
-**실험 결과** (§5):
-
-| Benchmark | Memora(S) | Memora(P) | Full Context | Mem0 |
-|---|---|---|---|---|
-| LoCoMo (Overall) | 0.849 | **0.863** | 0.825 | 0.653 |
-| LongMemEval (Avg) | 0.838 | **0.874** | 0.656 | — |
-
-Full Context마저 능가 (context noise 필터링). Token 98% 절감. abstraction 제거 시 Mem0로 퇴화(0.653).
