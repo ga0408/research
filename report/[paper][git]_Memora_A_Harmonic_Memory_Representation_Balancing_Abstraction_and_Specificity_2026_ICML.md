@@ -21,9 +21,9 @@ Memora는 구체적 내용물(concrete content) 위에 구조적 스캐폴딩을
 
 | 요소 | 이 메모리에서의 예시 | 인덱싱 | 역할 |
 |---|---|---|---|
-| **Memory Value** | `"Alice is starting a new job at Contoso in Seattle next month."` | ✗ | 원본 사실 그대로. 압축·손실 없음 (Specificity 보존). |
+| **Memory Value** | `"Alice is starting a new job at Contoso in Seattle next month."` | ✗ | 구체적 세부 사실 보존. 원본 세그먼트 보존 또는 고수준 요약(Episodic), 세부 사실 추출 및 점진적 병합(Factual)으로 구체성(Specificity) 유지. |
 | **Primary Abstraction** | `"Alice's new job at Contoso"` | ✓ (embedding) | value에 대한 1:1 요약. canonical identity이자 점진적 병합 기준 (Abstraction 제공). |
-| **Cue Anchors** | `"Alice career change"`, `"Contoso new hire"` | ✓ (embedding) | value에서 추출한 `[Entity]+[Key Aspect]` 구문. 다대다 연결망 형성 (구조적 내비게이션). |
+| **Cue Anchors** | `"Alice career change"`, `"Contoso new hire"` | ✓ (embedding) | value에서 추출한 `[Entity]+[Key Aspect]` 구문. 다대다 연결망 형성 (다단계 홉 순회 지원). |
 
 #### Primary Abstraction과 Cue Anchor의 핵심 역할
 1. **Primary Abstraction (개념적 정체성과 점진적 통합)**:
@@ -32,7 +32,15 @@ Memora는 구체적 내용물(concrete content) 위에 구조적 스캐폴딩을
 2. **Cue Anchor (다각적 맥락 접근점과 관계망 형성)**:
    - 메모리 값(Value)에서 추출한 `[Main Entity] + [Key Aspect]` 형태의 2~4어 짧은 시맨틱 훅이다.
    - 하나의 메모리에 여러 cue가 붙고 동일한 cue가 여러 메모리에 공유되는 비배타적 **다대다(many-to-many)** 연결을 제공한다.
-   - 명시적인 그래프 DB 엣지 없이도 메모리 엔트리 간의 유기적 관계망인 **암묵적 메모리 그래프(Implicit Memory Graph)**를 형성하여, 다단계 관계 추론의 통로가 된다.
+   - 명시적인 그래프 DB 엣지 없이도 메모리 엔트리 간의 유기적 관계망인 **암묵적 메모리 그래프(Implicit Memory Graph)**를 형성하여, 후속 검색 시 다단계 홉(multi-hop) 순회의 징검다리가 된다.
+
+#### Retrieve 단계의 핵심: 단서(Cue)를 따라가는 능동적 Multi-Hop 검색
+기존 RAG의 1회성(single-step) 정적 벡터 유사도 검색은 서로 다른 메모리에 분산된 복합 의존성을 포착하지 못한다. Memora의 검색(Retrieve)은 단순한 정적 조회가 아니라 **MDP(Markov Decision Process) 기반의 능동적 다단계 추론(Active Multi-Hop Reasoning)**으로 동작한다:
+- **초기 시드 탐색**: 질의와 관련된 Primary Abstraction 및 Cue Anchor를 매칭하여 초기 작업 메모리 집합(Working Set)을 확보한다.
+- **다단계 홉 순회 (Frontier Expansion / Multi-Hop)**: 확보된 메모리들이 가진 **Cue Anchor의 다대다 연결망을 추적**하여, 표면적 질의 유사도는 낮지만 맥락적으로 얽혀 있는 다른 메모리 후보군(Frontier)을 순차적으로 엮어 들여온다(`EXPAND`). 필요에 따라 질의를 동적으로 재수립(`REFINE`)하며 단서를 확장한다.
+- **조기 종료 (`STOP`)**: 에이전트에 충분한 맥락이 갖춰지면 유연하게 탐색을 중단하여 불필요한 토큰 낭비를 차단한다.
+
+즉, **명시적 그래프 구조가 없더라도 Cue Anchor의 공유 관계를 징검다리 삼아 한 홉(hop), 두 홉 건너뛰며 숨겨진 다단계 연관 사실들을 능동적으로 추적·조립**하는 것이 Memora 검색의 핵심 차별점이다.
 
 #### RAG와 Knowledge Graph의 이론적 일반화 (Unifying Theory)
 Memora의 Harmonic 표현 구조는 기존 메모리 패러다임들을 포함하는 통합적 일반화 프레임워크이다 (Theorem D.1~D.3):

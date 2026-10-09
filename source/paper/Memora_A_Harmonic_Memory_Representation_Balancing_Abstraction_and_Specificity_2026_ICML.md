@@ -9,7 +9,8 @@
   - *Specificity 치중 (Flat RAG, Mem0)*: 세부사항은 보존되나 메모리 파편화(fragmentation)와 무관한 사실의 범람(deluge of irrelevant facts) 초래.
   - *Abstraction 치중 (MemoryBank)*: 토큰은 절약되나 과도한 압축으로 핵심 세부사항(task-critical nuances)이 증발해 모호한 요약에 그침.
   - *Representational Gap*: 두 극단 사이의 구조적 연결 고리 부재로 검색 내비게이션 마비.
-- **Harmonic Memory (§1)**: 구체적 내용(Memory Value) 위에 구조적 스캐폴딩(Primary Abstraction + Cue Anchors)을 얹어 추상화와 구체성의 균형을 달성.
+- **Harmonic Memory (§1)**: 구체적 내용(Memory Value: 원본 보존 또는 요약/병합 유연성) 위에 구조적 스캐폴딩(Primary Abstraction + Cue Anchors)을 얹어 추상화와 구체성의 균형을 달성.
+- **Multi-Hop Retrieval (§4)**: 정적 벡터 검색의 한계를 넘어, Cue Anchor 연결망을 순회(Frontier expansion)하며 다단계(multi-hop) 연관 정보를 능동적으로 탐색하는 MDP 정식화.
 
 ## Memory Construction (§3)
 
