@@ -25,10 +25,22 @@ Memora는 구체적 내용물(concrete content) 위에 구조적 스캐폴딩을
 | **Primary Abstraction** | `"Alice's new job at Contoso"` | ✓ (embedding) | value에 대한 1:1 요약. canonical identity이자 점진적 병합 기준 (Abstraction 제공). |
 | **Cue Anchors** | `"Alice career change"`, `"Contoso new hire"` | ✓ (embedding) | value에서 추출한 `[Entity]+[Key Aspect]` 구문. 다대다 연결망 형성 (구조적 내비게이션). |
 
-이 분리 구조가 가져오는 세 가지 핵심 장점:
-1. **검색 정확도 향상**: 원문 value 대신 짧고 명확한 primary abstraction과 cue만 임베딩하여 노이즈를 회피한다.
-2. **메모리 파편화 방지**: 새 사실 유입 시 LLM이 기존 메모리와 동일 개념인지 판단해 단일 entry로 점진적 병합(consolidation)한다.
-3. **구조적 검색**: cue anchor의 다대다 연결을 통해 Policy retriever가 frontier를 확장하며 multi-hop 의존성을 포착한다 (RAG와 KG를 특수 케이스로 통합, Theorem D.1-3).
+#### Primary Abstraction과 Cue Anchor의 핵심 역할
+1. **Primary Abstraction (개념적 정체성과 점진적 통합)**:
+   - 메모리가 근본적으로 무엇에 관한 것인지를 규정하는 1:1 canonical identity이다.
+   - 새 정보가 유입될 때 기존 엔트리와의 유사도를 평가하여 동일 개념이면 단일 엔트리로 누적·병합(Consolidation)함으로써, 시간이 흘러도 메모리가 수많은 파편으로 쪼개지는 현상을 방지하고 고수준 개념 검색 지표가 된다.
+2. **Cue Anchor (다각적 맥락 접근점과 관계망 형성)**:
+   - 메모리 값(Value)에서 추출한 `[Main Entity] + [Key Aspect]` 형태의 2~4어 짧은 시맨틱 훅이다.
+   - 하나의 메모리에 여러 cue가 붙고 동일한 cue가 여러 메모리에 공유되는 비배타적 **다대다(many-to-many)** 연결을 제공한다.
+   - 명시적인 그래프 DB 엣지 없이도 메모리 엔트리 간의 유기적 관계망인 **암묵적 메모리 그래프(Implicit Memory Graph)**를 형성하여, 다단계 관계 추론의 통로가 된다.
+
+#### RAG와 Knowledge Graph의 이론적 일반화 (Unifying Theory)
+Memora의 Harmonic 표현 구조는 기존 메모리 패러다임들을 포함하는 통합적 일반화 프레임워크이다 (Theorem D.1~D.3):
+- **Flat RAG와의 동등성 (Theorem D.1)**: 그래프 순회 깊이를 `L = 0`으로 두고, cue anchor를 비활성화(`C = ∅`)하며, primary abstraction을 청크 원문 자체와 일치시키면(`a = v = s`), 단일 벡터 유사도 검색 후 종료하는 전통적인 **Flat RAG**와 수학적으로 정확히 일치한다.
+- **Implicit Knowledge Graph와의 동등성 (Theorem D.2)**: cue anchor를 엔티티(Entity)로 제한하고, cue 간 임베딩 유사도를 기반으로 다단계 홉(L-hop) 확장을 수행하면 잠재 공간의 거리 기반으로 이웃 노드를 순회하는 **Implicit KG** 탐색과 동등해진다.
+- **Explicit Knowledge Graph와의 동등성 (Theorem D.3)**: cue anchor를 `(Entity, Relation)` 쌍으로 정의하고 심볼릭 엣지를 따라 순회하도록 제약하면 기존 **Explicit KG**의 경로 탐색과 완전히 일치한다.
+
+즉, Memora는 "구체적 내용(Value) 위의 고수준 추상화(Primary Abstraction) + 다각적 접근점(Cue Anchor)"이라는 구조를 통해, 단순 벡터 검색(RAG)부터 다단계 관계 순회(KG)까지를 단일 프레임워크 내에서 조건부로 재현할 수 있는 상위 집합(superset) 아키텍처이다.
 
 > 본 문서는 **(1) Paper 이론 및 알고리즘 분석**을 먼저 다룬 후, **(2) Git 코드 구현 및 파이프라인 분석**을 상세히 전개한다.
 
@@ -40,6 +52,30 @@ Memora는 구체적 내용물(concrete content) 위에 구조적 스캐폴딩을
 
 ![Figure 1: Memora Overview Architecture](../source/paper/figures/memora_fig1_overview.png)
 *Figure 1: Memora 아키텍처 개요. Raw Data(대화/문서)를 의미 단위로 분할(Segmentation)하고 에피소딕 메모리를 구성한 후, 구체적 사실(Memory Value) 위에 개념적 정체성을 정의하는 Primary Abstraction과 다각적 접근점인 Cue Anchors를 구축하여 안정적 추상화와 풍부한 구체성의 균형을 달성한다. 검색 시에는 정책 기반 에이전트(Policy Retriever)가 이 구조를 순회하며 다단계 추론을 수행한다.*
+
+---
+
+### Figure 1 기반 시스템 아키텍처 흐름 (§3.2)
+
+위 **Figure 1**은 Memora가 이종 데이터 스트림으로부터 구조화된 메모리를 구축하고, 이를 기반으로 에이전트의 복합 질의를 해결하는 전체 메커니즘을 4단계 파이프라인으로 보여준다:
+
+1. **입력 분할 및 서사 맥락 형성 (Figure 1 좌측)**:
+   - 다양한 데이터 소스(대화, 문서 등)의 원시 데이터 `D`는 의미적 일관성을 지닌 단위 세그먼트(`si`)로 분해된다 (`§3.3 Segmentation`).
+   - 각 세그먼트마다 참여자·의도·시간 등의 상황적 맥락을 담은 **Episodic Memory(`ei`)**가 생성되어, 개별 사실들이 서사적 배경과 분리되지 않도록 지탱한다 (`§3.4 Episodic Memory`).
+
+2. **조화로운 메모리 표현 구축 (Figure 1 중앙 상단)**:
+   - 각 세그먼트로부터 추출된 구체적 정보는 무손실 원본 형태인 **Memory Value(`vi`)**로 보존된다.
+   - 동시에 메모리의 핵심 주제를 대표하는 1:1 요약인 **Primary Abstraction(`ai`)**이 생성되며, 기존 저장소와 대조하여 동일 개념일 경우 단일 엔트리로 점진적 병합(Consolidation)된다 (`§3.5 Primary Abstraction`).
+   - 세부적인 접근점을 제공하기 위해 `[Entity] + [Key Aspect]` 형태의 **Cue Anchors(`cij`)**가 다대다 방식으로 추가 추출된다 (`§3.6 Cue Anchors`).
+
+3. **암묵적 메모리 그래프 형성 (Figure 1 중앙 하단)**:
+   - 메모리 엔트리들은 명시적인 그래프 엣지(edge) 구축 없이도, 동일한 cue anchor를 공유하거나 추상화 수준에서 의미적으로 연결됨으로써 **암묵적 메모리 그래프(Implicit Memory Graph)**를 형성한다.
+
+4. **정책 기반 순차 검색 및 추론 (Figure 1 우측)**:
+   - 질의 시 쿼리 `q`를 primary abstraction 및 cue anchor와 매칭하여 초기 시드 메모리를 식별한다.
+   - 이후 강화학습(GRPO)으로 최적화된 **Policy Retriever(πθ)**가 암묵적 그래프를 순회(EXPAND)하거나 쿼리를 갱신(REFINE)하는 MDP 다단계 추론을 수행하여, 복합 종속성이 연결된 최적의 메모리 부분집합을 추출한다 (`§4 Policy-Guided Sequential Retrieval`).
+
+아래 하위 섹션에서는 Figure 1에 묘사된 각 컴포넌트의 수학적 정식화, 구축 알고리즘, 검색 프로세스 및 벤치마크 결과를 상술한다.
 
 ### 1.1 문제 정식화 및 설계 원칙 (§3.1)
 
