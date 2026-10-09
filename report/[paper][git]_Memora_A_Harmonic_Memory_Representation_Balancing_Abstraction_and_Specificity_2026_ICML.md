@@ -8,11 +8,6 @@ Microsoft Research의 agent memory 프레임워크로, 대화와 문서에서 �
 
 **원본**: paper → [arXiv:2602.03315](https://arxiv.org/abs/2602.03315) (ICML 2026) / git → [github.com/microsoft/Memora](https://github.com/microsoft/Memora.git)
 
-### 시스템 아키텍처 개요
-
-![Figure 1: Memora Overview Architecture](../source/paper/figures/memora_fig1_overview.png)
-*Figure 1: Memora 아키텍처 개요. Raw Data(대화/문서)를 의미 단위로 분할(Segmentation)하고 에피소딕 메모리를 구성한 후, 구체적 사실(Memory Value) 위에 개념적 정체성을 정의하는 Primary Abstraction과 다각적 접근점인 Cue Anchors를 구축하여 안정적 추상화와 풍부한 구체성의 균형을 달성한다. 검색 시에는 정책 기반 에이전트(Policy Retriever)가 이 구조를 순회하며 다단계 추론을 수행한다.*
-
 ### 핵심 설계: Abstraction과 Specificity를 균형잡은 Harmonic Memory Representation
 
 LLM 에이전트는 본질적으로 **무상태(stateless)** 특성을 지녀, 경험을 구조화·재사용하지 못하면 매번 계획 재수립과 중복 추론을 반복하는 병목이 발생한다. 이를 극복하기 위해 메모리를 확장하려 할 때 **추상화(Abstraction)**와 **구체성(Specificity)** 간의 상충 관계(trade-off)가 발생한다:
@@ -42,6 +37,9 @@ Memora는 구체적 내용물(concrete content) 위에 구조적 스캐폴딩을
 ## 1. Paper 분석: 이론, 알고리즘 및 벤치마크
 
 > 상세 논문 발췌 → [paper 발췌](../source/paper/Memora_A_Harmonic_Memory_Representation_Balancing_Abstraction_and_Specificity_2026_ICML.md) / [arXiv:2602.03315](https://arxiv.org/abs/2602.03315)
+
+![Figure 1: Memora Overview Architecture](../source/paper/figures/memora_fig1_overview.png)
+*Figure 1: Memora 아키텍처 개요. Raw Data(대화/문서)를 의미 단위로 분할(Segmentation)하고 에피소딕 메모리를 구성한 후, 구체적 사실(Memory Value) 위에 개념적 정체성을 정의하는 Primary Abstraction과 다각적 접근점인 Cue Anchors를 구축하여 안정적 추상화와 풍부한 구체성의 균형을 달성한다. 검색 시에는 정책 기반 에이전트(Policy Retriever)가 이 구조를 순회하며 다단계 추론을 수행한다.*
 
 ### 1.1 문제 정식화 및 설계 원칙 (§3.1)
 
