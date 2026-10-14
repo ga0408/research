@@ -41,6 +41,7 @@ S(d) = {s1, ..., sk}     # data item d를 semantically coherent segments로 분�
 ```
 ei = E(si)              # 각 segment si에 대해 episodic memory 생성
 ```
+- **세그먼트 단위 생성**: 에피소딕 메모리는 전체 세션이 아니라 각 세그먼트 단위(`ei = E(si)`)로 독립 생성됨. (Figure 1은 1개 세그먼트 내부의 1:N 파생 구조를 단순화하여 시각화한 것임).
 - 해당 segment에서 파생된 모든 memory entry의 공유 narrative grounding.
 - 표현은 유연: extracted high-level summary(참여자·의도·시간 범위) 또는 raw segment text 그대로(정확한 표현 보존).
 - 검색 시 같은 episodic memory에 속한 entry들을 grouping해 narrative coherence 제공 → multi-step reasoning 지원.
@@ -78,6 +79,11 @@ m⋆(ai) = J(ai, U(ai))    # match → target entry 반환, no match → ∅
 mi = { Update(m⋆(ai), ai, vi),  m⋆(ai) ≠ ∅   # 기존 entry에 vi 병합, abstraction a'i로 갱신 가능
        Create(ai, vi),          m⋆(ai) = ∅ }  # 신규 entry 생성
 ```
+
+- **Update 동작 세부**:
+  - `vi`: LLM이 기존 값과 새 값을 중복 없이 합성(`updated_value`)하여 일관된 본문을 유지하며, 원본 구체성은 메타데이터 `history` 배열에 이전 버전 값들을 영구 누적하여 보존.
+  - `episodic_memory_ids`: 두 메모리의 원본 세그먼트 에피소딕 ID들을 합집합으로 유지하여 원문 세그먼트 역추적성 보장.
+  - `cue`: 병합된 최신 Value/Index를 기준으로 새 Cue Anchor를 재생성(Regenerate)하고 고립된 Cue는 자동 제거.
 
 → 각 entry가 단일 primary abstraction에 anchor되고, 의미적으로 정렬된 새 정보가 점진적 통합됨. 불필요한 중복 없이 기존 개념을 풍부하게 하거나 필요시에만 새 abstraction 생성.
 

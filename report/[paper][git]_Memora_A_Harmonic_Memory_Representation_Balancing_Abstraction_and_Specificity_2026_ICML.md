@@ -110,6 +110,8 @@ S(d) = {s1, ..., sk}     # data item d를 semantically coherent segments로 분�
 ```
 ei = E(si)              # 각 segment si에 대해 episodic memory 생성
 ```
+- **세그먼트 단위 생성 원칙**: 에피소딕 메모리는 대화 세션 전체가 아니라 **개별 세그먼트 단위(`ei = E(si)`)로 독립 생성**된다.
+- **Figure 1 다이어그램과 실제 구조의 관계**: 논문 Figure 1에서 에피소딕 메모리가 1개만 있고 그 아래로 팩츄얼 메모리들이 뻗어나오는 것은 **단일 세그먼트(또는 짧은 단일 세션이 1개 세그먼트로 처리된 경우)의 처리 흐름을 대표 예시로 단순화하여 시각화**한 것이다. 긴 대화나 문서는 복수의 세그먼트 `{s1, s2, ..., sk}`로 분할되므로, 세그먼트 수만큼 서로 다른 에피소딕 메모리 `{e1, e2, ..., ek}`가 생성된다. 각 세그먼트 내부에서 추출된 팩츄얼 메모리들은 자신이 파생된 해당 세그먼트의 에피소딕 메모리를 고유한 서사적 배경으로 참조한다.
 - 해당 세그먼트에서 파생된 모든 메모리 엔트리의 공유 서사적 기반(narrative grounding)을 제공한다.
 - 고수준 요약(참여자, 의도, 시간 범위) 또는 원본 텍스트 그대로 보존하는 방식 모두 지원한다.
 - 검색 후 동일한 에피소딕 메모리에 속한 엔트리들을 묶어 서사적 일관성을 복원함으로써 다단계 추론(multi-step reasoning)을 지원한다.
@@ -133,7 +135,10 @@ Fa(s) = {mi}^N_{i=1},   mi = (ai, vi)
 mi = { Update(m⋆(ai), ai, vi),  m⋆(ai) ≠ ∅   # 기존 엔트리에 vi 병합, 필요시 abstraction 갱신
        Create(ai, vi),          m⋆(ai) = ∅ }  # 신규 엔트리 생성
 ```
-이를 통해 각 엔트리가 단일 primary abstraction에 앵커링되고, 의미적으로 정렬된 새 정보가 점진적으로 통합되어 메모리 파편화를 차단한다.
+- **병합(Update) 시 Value 및 Cue 처리 메커니즘**:
+  - **Memory Value의 의미적 합성 및 History 보존**: 기존 엔트리의 `vi`와 신규 엔트리의 `vi'`는 단순 덮어쓰기나 이어붙이기가 아니라, LLM 판별을 거쳐 중복을 제거하고 새로운 세부 사실을 결합한 통합 텍스트(`updated_value`)로 재합성된다. 동시에 원본 구체성을 영구 보존하기 위해 메타데이터 `history` 배열에 이전 버전의 원본 값들이 타임스탬프와 함께 누적 저장되며, 두 메모리가 참조하던 에피소딕 ID(`episodic_memory_ids`)도 합집합으로 누적되어 원본 세그먼트로의 역추적 경로가 온전히 유지된다.
+  - **Cue Anchor 재생성 및 동기화**: 결합된 새로운 사실 맥락을 반영하기 위해 기존 엔트리의 Cue 연결을 정리하고, 갱신된 Value 및 Index를 바탕으로 최신 Cue Anchor들을 새롭게 재생성(Regenerate)하여 인덱스 정합성을 유지한다.
+- 이를 통해 각 엔트리가 단일 primary abstraction에 앵커링되고, 의미적으로 정렬된 새 정보가 점진적으로 통합되어 메모리 파편화를 차단한다.
 
 #### Cue Anchors (§3.6)
 Primary abstraction이 의도적으로 거시적이므로, 미세한 맥락적 접근을 위한 시맨틱 훅으로 cue anchor를 추가한다.
@@ -581,6 +586,10 @@ Primary abstraction(`ai`, index)만으로는 너무 coarse해서 놓치는 측�
 
 - **Episodic = context**: "어떤 대화에서 나온 사실인가"를 알려주는 배경
 - **Factual = atomic fact**: 그 대화에서 뽑은 개별 사실들
+- **세그먼트별 독립 생성 및 Figure 1 다이어그램의 의미**:
+  - 논문 Figure 1에서는 하나의 에피소딕 메모리 아래에 여러 팩츄얼 메모리가 연결된 단일 트리 구조로 묘사되어 있어 대화 세션 전체에 1개의 에피소딕 메모리만 존재하는 것처럼 보이기 쉽다. 그러나 이는 **단일 세그먼트 내부의 1:N 파생 관계를 집중적으로 보여주기 위한 대표 예시 시각화**이다.
+  - 실제로는 입력 데이터가 복수의 세그먼트 `{s1, s2, ..., sk}`로 분할될 때마다 세그먼트별로 각각 독립적인 에피소딕 메모리 `ei = E(si)`가 생성된다. 따라서 서로 다른 세그먼트에서 추출된 팩츄얼 메모리들은 각자 자신이 파생된 서로 다른 에피소딕 ID(`episodic_memory_ids`)를 참조한다.
+  - **코드 구현상의 대화 분할기 현실**: 파일 입력(`add_file`)의 경우 Markdown은 헤더 `#` 단위, 텍스트는 문단 `\n\n` 단위로 세그먼트가 물리적으로 분할되어 복수의 에피소딕 메모리가 생성된다. 반면 대화 텍스트(`chat`)의 경우, 긴 대화를 의미적 경계에 따라 복수 세그먼트로 자동 분할하는 Conversation Segmenter 모듈이 현재 공개 코드(`LocalMemoraClient.add`)에서 TODO로 남아 있어, 단일 `add(text)`로 넘겨진 대화 덩어리 전체가 1개의 Segment로 처리된다. 따라서 대화 입력 시에는 1회의 API 호출 단위가 단일 세그먼트로 취급되어 1개의 에피소딕 메모리를 공유하게 된다.
 - 검색은 factual memory만 반환한다. 각 factual은 `episodic_memory_ids` 필드로 부모 episodic을 참조하고 있지만, `MemoraClient.query()`가 이를 따라가서 관련 메모리를 함께 가져오지는 않는다. 대신 벤치마크 평가용 app 코드(`app/locomo/`, `app/longmemeval/`)가 검색 후 이 필드를 읽어 같은 episodic을 참조하는 다른 factual들과 해당 episodic memory의 원문 대화를 함께 LLM context에 제공한다. 즉 LLM 관점에서는 하나의 factual만 검색에 걸려도 같은 대화 맥락의 다른 사실들과 원문이 함께 제공되는데, 이것은 벤치마크 평가 시 답변 품질을 높이기 위해 app 레이어에서 추가한 후처리이지 Memora 핵심 라이브러리의 검색 기능은 아니다. 사용자가 `MemoraClient.query()`를 호출하면 factual memory 리스트만 반환된다.
 - `use_segments_as_episodic=True`면 원본 segment text 그대로, `False`면 LLM 요약
 
@@ -808,6 +817,23 @@ update_memory(entry, update_decision)
 
 [결과] 두 개의 분산된 사실이 하나의 entry로 병합되었다. 이를 통해 시간이 지나면서 같은 주제에 새로운 정보가 추가될 때, 메모리가 여러 개로 쪼개지는 것을 방지하고 하나의 일관된 기록으로 유지된다. history 필드에 이전 버전과 새 버전이 모두 기록되어 있어, 언제 어떤 정보가 추가되었는지 추적할 수 있다.
 ```
+
+#### 2.1.5.1 병합(Consolidation) 시 Value 원본 보존과 Cue Anchor 동기화 메커니즘
+
+Primary Abstraction이 유사하여 두 개 이상의 메모리가 병합될 때 발생하는 **"구체적 원본성(Value)의 훼손 방지"**와 **"검색 진입점(Cue)의 정합성 유지"**는 Memora 아키텍처의 핵심 무결성 장치이다:
+
+1. **Memory Value의 의미적 합성(Synthesis)과 불변 히스토리(History) 누적**:
+   - **문제의식**: 구체성(Specificity)을 보존하기 위해 새 메모리를 무조건 별도로 쌓으면 메모리 파편화(Fragmentation)가 발생하고, 반대로 기존 값을 덮어쓰거나 과도하게 요약하면 최초의 구체적 원본 사실이 소실된다.
+   - **이중 보존 메커니즘**:
+     - **대표 Value 합성 (`updated_value`)**: LLM(`PROMPT_MEMORY_UPDATE_DECISION`)이 기존 값과 신규 값을 종합하여 의미적 모순과 중복을 해소하고, 새롭게 획득된 세부 사실을 자연스럽게 결합한 하나의 완결된 문장으로 재작성한다.
+     - **버전별 원본 히스토리 보존 (`history`)**: `generate_history()` 함수를 통해 병합 전 기존 엔트리의 `[index, value, timestamp, creation_time]`와 새로 유입된 엔트리의 원본 정보가 JSON 객체 형태로 `history` 배열에 누적 보존된다. 따라서 메인 엔트리는 항상 최신의 통합된 지식을 표현하면서도, 필요 시 과거 각 버전의 원본 표현을 완벽하게 역추적할 수 있다.
+     - **서사 세그먼트 링크 합집합 (`episodic_memory_ids`)**: 두 메모리가 각각 파생되었던 원본 세그먼트의 에피소딕 메모리 ID들을 합집합(`union`)하여 유지한다. 이를 통해 합성된 Value의 배경이 된 복수의 원본 대화/문서 세그먼트 전체 텍스트로의 양방향 링크가 영구 보존된다.
+
+2. **Cue Anchor의 재생성(Regeneration)과 가지치기(Pruning)**:
+   - **맥락 변화에 따른 Cue 동기화**: Value의 내용과 Primary Index가 확장·변경되었으므로, 과거의 좁은 맥락을 기반으로 생성되었던 Cue Anchor는 그대로 유지될 경우 잘못된 검색 신호(Stale Index)를 유발할 수 있다.
+   - **재생성 파이프라인**: 병합 과정에서 기존 엔트리가 삭제(`agent_memory.delete()`)되면서 이전 Cue 연결이 해제되고, 새로 합성된 `updated_value`와 `updated_index`를 입력으로 `CueIndexGenerator`가 다시 호출되어 현재 통합 지식을 대표하는 최신 Cue Anchor들을 새롭게 도출한다.
+   - **자동 가지치기 (Pruning)**: 특정 Cue Anchor가 참조하던 유일한 메모리가 병합으로 삭제되거나 다른 Cue로 대체되어 더 이상 어떤 Primary Entry와도 연결되지 않게 되면, 해당 Cue Entry는 인덱스 저장소에서 자동 정리(Pruning)되어 그래프가 불필요하게 팽창하는 것을 차단한다.
+
 
 #### `MemoryUpdateDecision` 구조화 응답
 
